@@ -1,0 +1,21 @@
+name: Nix
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Nix Flake - Linux
+    permissions:
+      contents: read
+    steps:
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Clone project
+        uses: actions/checkout@v6
+      - name: Build
+        run: nix build --print-build-logs
