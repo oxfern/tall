@@ -1,0 +1,64 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.iroh.computer/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Billing FAQ
+
+> Frequently asked questions about Iroh Services billing
+
+## What payment methods do you accept?
+
+We accept major credit and debit cards. Payment is processed securely through our payment provider.
+
+## When am I billed?
+
+Billing is monthly. You'll be charged at the beginning of each billing cycle for
+your plan, and at the end of the cycle for any usage-based overages.
+
+## Can I try Iroh Services for free?
+
+Yes. The Free plan gives you access to shared public relays, basic metrics, and
+community support on Discord at no cost.
+
+## What happens if my payment fails?
+
+If a payment fails, we'll retry a few times and notify you by email. If the
+issue isn't resolved, your project may be downgraded to the Free plan.
+
+## Do I get a refund if I cancel mid-cycle?
+
+Pro plan charges are monthly, not hourly. Removing a relay or
+canceling a subscription does not convert its monthly charge into an hourly
+charge. If you have questions about a refund or credit for the current billing
+cycle, contact [support@iroh.computer](mailto:support@iroh.computer).
+
+Metered resources, such as dedicated relays, egress, total connections, and
+metrics data points per minute are billed on an hourly basis, and you will only
+be charged for the hours that the relay was running.
+
+## How do spend caps work?
+
+Spend caps are compared with your current total invoice, including base plan
+and relay charges, usage-based overages, and applicable taxes. When
+you reach the cap, metrics collection pauses and relay usage is
+constrained to prevent additional connection and egress overages.
+
+See [Control your costs](https://docs.iroh.computer/iroh-services/billing/control-costs.md) for the full
+enforcement details.
+
+## Where can I see my invoices?
+
+Invoices are available in the **Settings** > **Billing** section of your
+[project dashboard](https://services.iroh.computer).
+
+## Are taxes included in the prices?
+
+Prices shown do not include taxes. Applicable taxes (such as VAT or sales tax)
+may or may not be added at checkout based on your billing address and your local tax rules.
+
+## I have a billing question not listed here
+
+Reach out to us at [support@iroh.computer](mailto:support@iroh.computer).
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

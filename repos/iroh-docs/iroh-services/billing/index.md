@@ -1,0 +1,41 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.iroh.computer/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Overview
+
+> Understand how billing works for Iroh Services
+
+Iroh Services offers plans to fit your needs, from free tiers for experimentation to enterprise plans for production workloads.
+
+## Plans
+
+For full plan details and pricing, visit the [pricing page](https://iroh.computer/pricing).
+
+## How billing works
+
+Iroh Services billing is usage-based, calculated monthly. Your bill is determined by:
+
+* **Your plan tier**: each plan includes a base set of features and resource allocations.
+* **Resource usage**: additional charges may apply for usage beyond what's included in your plan, such as metrics volume or relay bandwidth.
+
+Billing is managed through the [Iroh Services dashboard](https://services.iroh.computer). You can view your current plan, usage, and invoices at any time.
+
+## Billing terms
+
+* **Concurrent connections** are the peak number of endpoint connections active on your project's relay service at the same time during a monthly billing cycle. They are relay connections, not the peer-to-peer application connections carried inside iroh.
+* **Relay egress** is data sent from an Iroh Services relay to an endpoint. Only traffic actually carried by a relay is billable relay egress. Traffic sent over a direct peer-to-peer connection does not pass through a relay and is not billed as relay egress.
+* **Billing attribution** assigns managed infrastructure to the project that provisioned it and endpoint usage to the project whose API key authorized the endpoint. All endpoints using a project's key contribute to that project's connection, egress, metrics, and diagnostics usage, regardless of where those endpoints run.
+
+Included usage and overages are calculated over the project's monthly billing
+cycle. See the [pricing page](https://iroh.computer/pricing) for current
+allowances and rates.
+
+## Next steps
+
+* [Manage your subscription](https://docs.iroh.computer/iroh-services/billing/manage-subscription.md): upgrade, downgrade, or cancel your plan.
+* [Control your costs](https://docs.iroh.computer/iroh-services/billing/control-costs.md): set spend caps and monitor usage.
+* [Billing FAQ](https://docs.iroh.computer/iroh-services/billing/faq.md): common questions about billing and payments.
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

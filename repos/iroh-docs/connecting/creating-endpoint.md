@@ -1,0 +1,109 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.iroh.computer/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Creating an Endpoint
+
+An endpoint is the core building block of an iroh node. It manages network
+connections, handles incoming and outgoing traffic, and provides the necessary
+infrastructure for implementing protocols.
+
+Once you have an Endpoint, you can use it to create connections or accept
+incoming connections from other endpoints.
+
+## Creating an Endpoint
+
+This method initializes a new endpoint and binds it to a local address, allowing it
+to listen for incoming connections.
+
+```rust theme={null}
+use iroh::{Endpoint, endpoint::presets};
+use anyhow::Result;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let endpoint = Endpoint::bind(presets::N0).await?;
+    // ...
+    Ok(())
+}
+```
+
+1. `bind` creates the endpoint and starts listening for
+   incoming connections
+2. `await` keyword is used to wait for the endpoint
+   to be created in an asynchronous context.
+
+> [!NOTE]
+>
+> Each time you `bind` without supplying a secret key, iroh generates a **brand
+> new random identity**. That means a different `EndpointId` — and therefore
+> different tickets and addresses — every time your program starts. If you want a
+> stable identity that survives restarts, see [Persistent
+> identity](#persistent-identity) below.
+
+## Persistent identity
+
+An endpoint's identity is an Ed25519 keypair. The public half is its
+`EndpointId` (the stable address other endpoints dial); the private half is its
+`SecretKey`. By default the builder generates a fresh `SecretKey` on every
+launch, so your `EndpointId` changes each run.
+
+For most applications — anything where peers reconnect to you over time, or
+where you hand out a ticket that should keep working — you want a **persistent
+identity**. To get one, generate a `SecretKey` once, store it, and load the same
+key on every subsequent launch:
+
+```rust theme={null}
+use iroh::{Endpoint, SecretKey, endpoint::presets};
+use anyhow::Result;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Load a previously stored key, or generate and persist a new one.
+    let secret_key = match std::fs::read("endpoint.key") {
+        Ok(bytes) => SecretKey::from_bytes(&bytes.as_slice().try_into()?),
+        Err(_) => {
+            let key = SecretKey::generate();
+            // Treat this file like a password: anyone with it can
+            // impersonate your endpoint. Store it securely.
+            std::fs::write("endpoint.key", key.to_bytes())?;
+            key
+        }
+    };
+
+    let endpoint = Endpoint::builder()
+        .secret_key(secret_key)
+        .bind(presets::N0)
+        .await?;
+
+    // This prints the same EndpointId on every run.
+    println!("our endpoint id: {}", endpoint.id());
+    Ok(())
+}
+```
+
+> [!NOTE]
+>
+> Your `SecretKey` is sensitive: anyone who has it can impersonate your endpoint.
+> Store it the way you'd store a private key or password — file permissions, a
+> keychain, or an OS secret store — not in source control.
+
+> [!NOTE]
+>
+> The `EndpointId` must always be globally unique, otherwise there would
+> be two nodes impersonating each other. When using a persisted key
+> make sure no other endpoint is using the same key at the same time.
+
+## Next Steps
+
+With an endpoint created, you can now start discovering and connecting to other endpoints.
+
+Explore the following guides to learn more:
+
+* [DNS Global Address Lookup](https://docs.iroh.computer/connecting/dns-address-lookup.md)
+* [Local Network Address Lookup](https://docs.iroh.computer/connecting/local-address-lookup.md)
+* [Gossip and Topic Broadcast](https://docs.iroh.computer/connecting/gossip.md)
+* [Writing a Protocol](https://docs.iroh.computer/protocols/writing-a-protocol.md)
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

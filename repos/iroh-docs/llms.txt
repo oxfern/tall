@@ -1,0 +1,75 @@
+# iroh
+
+- [What is iroh?](https://docs.iroh.computer/what-is-iroh.md)
+- [Quickstart](https://docs.iroh.computer/quickstart.md): Connect two iroh endpoints in five minutes
+- [Compatibility](https://docs.iroh.computer/compatibility.md): Operating system, hardware, microcontroller, and network transport support for iroh.
+- [Overview](https://docs.iroh.computer/languages/index.md): Use iroh from Rust, Python, Swift, Kotlin, JavaScript, C, or Go.
+- [Rust](https://docs.iroh.computer/languages/rust.md): Add iroh to your Rust project.
+- [Python](https://docs.iroh.computer/languages/python.md): Use iroh from Python via the iroh-ffi bindings.
+- [Swift](https://docs.iroh.computer/languages/swift.md): Build an iOS + macOS app on top of iroh via the Swift bindings.
+- [Kotlin](https://docs.iroh.computer/languages/kotlin.md): Use iroh from Kotlin on the JVM or Android.
+- [JavaScript](https://docs.iroh.computer/languages/javascript.md): Use iroh from Node.js via the iroh-ffi bindings.
+- [C](https://docs.iroh.computer/languages/c.md): Use iroh from C via the iroh-c-ffi bindings.
+- [Go](https://docs.iroh.computer/languages/go.md): Use iroh from Go via the [iroh-ffi](https://github.com/n0-computer/iroh-ffi) bindings.
+- [WebAssembly and Browsers](https://docs.iroh.computer/languages/wasm-browser.md)
+- [Connect two endpoints](https://docs.iroh.computer/connect-two-endpoints.md): Build a ping program that connects two endpoints over iroh
+- [See your direct data rate](https://docs.iroh.computer/iroh-services/quickstart.md): Get started with Iroh Services in minutes
+- [Diagnose a connectivity issue](https://docs.iroh.computer/iroh-services/net-diagnostics/quickstart.md): Diagnose user connectivity issues with remote diagnostic reporting
+- [Using QUIC](https://docs.iroh.computer/protocols/using-quic.md)
+- [Build a chat app](https://docs.iroh.computer/examples/chat.md): Build a peer-to-peer chat application using iroh gossip
+- [Add a relay](https://docs.iroh.computer/add-a-relay.md): Choose and configure production relays for your endpoints
+- [Deploying to enterprise networks](https://docs.iroh.computer/configuring-networks.md): What iroh does on your network, what to allow through your firewall, and how to keep it under your control
+- [Endpoints](https://docs.iroh.computer/concepts/endpoints.md)
+- [Tickets](https://docs.iroh.computer/concepts/tickets.md)
+- [Address Lookup](https://docs.iroh.computer/concepts/address-lookup.md)
+- [Relays](https://docs.iroh.computer/concepts/relays.md)
+- [NAT Traversal](https://docs.iroh.computer/concepts/nat-traversal.md)
+- [Protocols](https://docs.iroh.computer/concepts/protocols.md)
+- [Security & Privacy](https://docs.iroh.computer/concepts/security-privacy.md)
+- [Creating an Endpoint](https://docs.iroh.computer/connecting/creating-endpoint.md)
+- [DNS](https://docs.iroh.computer/connecting/dns-address-lookup.md)
+- [DHT](https://docs.iroh.computer/connecting/dht-address-lookup.md)
+- [mDNS](https://docs.iroh.computer/connecting/local-address-lookup.md)
+- [Gossip Broadcast](https://docs.iroh.computer/connecting/gossip.md)
+- [Observing & Rejecting Connections](https://docs.iroh.computer/connecting/endpoint-hooks.md)
+- [Blobs](https://docs.iroh.computer/protocols/blobs.md)
+- [RPC](https://docs.iroh.computer/protocols/rpc.md)
+- [Automerge](https://docs.iroh.computer/protocols/automerge.md)
+- [Streaming](https://docs.iroh.computer/protocols/streaming.md)
+- [Documents](https://docs.iroh.computer/protocols/documents.md)
+- [Write your own Protocol](https://docs.iroh.computer/protocols/writing-a-protocol.md)
+- [Tor](https://docs.iroh.computer/transports/tor.md)
+- [Nym](https://docs.iroh.computer/transports/nym.md)
+- [Bluetooth (BLE)](https://docs.iroh.computer/transports/bluetooth.md)
+- [Overview](https://docs.iroh.computer/deployment/dedicated-infrastructure.md)
+- [Public Relays](https://docs.iroh.computer/iroh-services/relays/public.md): Free shared relays for development and hobby use
+- [Shared Relays](https://docs.iroh.computer/iroh-services/relays/shared.md): Multi-tenant relays with authentication, higher rate limits, and predictable performance
+- [Dedicated Hosting](https://docs.iroh.computer/iroh-services/relays/managed.md): Deploy and configure dedicated relay infrastructure through Iroh Services
+- [Self-hosted](https://docs.iroh.computer/iroh-services/relays/self-hosted.md): Run your own relay
+- [Rate Limiting](https://docs.iroh.computer/relays/rate-limiting.md): How relays throttle traffic per connection, and how to configure limits on a self-hosted relay
+- [Overview](https://docs.iroh.computer/iroh-services/metrics/index.md): Monitor your network with comprehensive metrics collection
+- [API Keys](https://docs.iroh.computer/iroh-services/access.md): Authenticate your endpoint to Iroh Services to push metrics and connectivity reports
+- [Network Diagnostics](https://docs.iroh.computer/iroh-services/net-diagnostics/usage.md): Read connectivity reports and troubleshoot net diagnostics setup
+- [How Metrics Work](https://docs.iroh.computer/iroh-services/metrics/how-it-works.md): Understanding how Iroh Services collects and processes metrics
+- [Endpoint Metrics](https://docs.iroh.computer/iroh-services/metrics/endpoint.md): Detailed metrics at the endpoint level for Enterprise plans
+- [Metrics Glossary](https://docs.iroh.computer/iroh-services/metrics/glossary.md): Complete reference of all available metrics in Iroh Services
+- [Custom Metrics](https://docs.iroh.computer/deployment/metrics.md)
+- [Changelog](https://docs.iroh.computer/about/changelog.md)
+- [Roadmap](https://docs.iroh.computer/about/roadmap.md)
+- [Release & Support Policies](https://docs.iroh.computer/about/release-policy.md): How iroh versions are released, how long they're supported, and what wire-protocol compatibility you can rely on.
+- [Overview](https://docs.iroh.computer/iroh-services/billing/index.md): Understand how billing works for Iroh Services
+- [Manage Your Subscription](https://docs.iroh.computer/iroh-services/billing/manage-subscription.md): Upgrade, downgrade, or cancel your Iroh Services subscription
+- [Control Your Costs](https://docs.iroh.computer/iroh-services/billing/control-costs.md): Set spend caps and monitor usage to keep your Iroh Services costs predictable
+- [Billing FAQ](https://docs.iroh.computer/iroh-services/billing/faq.md): Frequently asked questions about Iroh Services billing
+- [Rust API docs](https://docs.iroh.computer/rust-api.md)
+- [Python API docs](https://docs.iroh.computer/python-api.md)
+- [Swift API docs](https://docs.iroh.computer/swift-api.md)
+- [Kotlin API docs](https://docs.iroh.computer/kotlin-api.md)
+- [JavaScript API docs](https://docs.iroh.computer/js-api.md)
+- [Examples](https://docs.iroh.computer/examples.md)
+- [Troubleshooting](https://docs.iroh.computer/troubleshooting.md)
+- [Support](https://docs.iroh.computer/iroh-services/support.md): Get help from the n0 computer team
+- [FAQ](https://docs.iroh.computer/about/faq.md)
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

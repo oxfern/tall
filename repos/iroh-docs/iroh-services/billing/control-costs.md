@@ -1,0 +1,53 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.iroh.computer/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Control Your Costs
+
+> Set spend caps and monitor usage to keep your Iroh Services costs predictable
+
+Iroh Services provides tools to help you stay in control of your spending.
+
+## Spend caps
+
+Spend caps let you set a monthly budget for your project. The cap is compared
+with the current total invoice, not only with usage-based overages.
+
+### Setting a spend cap
+
+1. Go to your project dashboard.
+2. Navigate to **Settings**
+3. Under **Spend cap**, enter your maximum monthly budget.
+4. Click **Save**.
+
+> [!NOTE]
+>
+> Your spend cap applies to your total invoice, including the base plan,
+> Dedicated relay charges, usage-based overages, and applicable taxes. It is not a
+> guaranteed invoice ceiling: recurring charges and taxes still apply, and usage
+> reported before enforcement takes effect can put the final invoice above the
+> cap.
+
+### What happens when you hit your cap
+
+When your total current invoice reaches your spend cap:
+
+* **Metrics collection pauses.** New metrics are not collected until the next billing cycle or until you raise or remove the cap. Existing dashboard and historical data remain available.
+* **Shared Relay overage metering stops.** Additional Shared Relay connection and egress usage is not billed after cap enforcement takes effect.
+* **Shared Relay traffic is constrained.** Existing relay connections are not dropped, but relay throughput is throttled. New connections above the plan's 10,000 included concurrent connections are refused.
+* **Dedicated relays continue running.** They are not stopped or throttled. Their monthly charges and any billable relay egress continue to apply while they are running; delete relays you no longer need.
+* **New paid infrastructure is blocked.** You cannot deploy another Dedicated relay while the cap is reached.
+
+Enforcement is not instantaneous because usage and invoice totals must be
+reported and evaluated. Usage resets and normal Shared Relay limits resume at
+the start of the next billing cycle. Raising or removing the cap also resumes
+service after the updated cap is evaluated.
+
+## Tips for managing costs
+
+* **Start with the Free plan** to understand your usage patterns before upgrading.
+* **Set a spend cap** early to avoid unexpected charges.
+* **Review usage regularly** from the dashboard to spot trends before they become costly.
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

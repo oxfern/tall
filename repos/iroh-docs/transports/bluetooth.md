@@ -1,0 +1,63 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.iroh.computer/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Bluetooth (BLE)
+
+The [iroh-ble-transport](https://github.com/mcginty/iroh-ble-transport) crate
+routes iroh over BLE (Bluetooth Low Energy) to allow for P2P connectivity
+without the internet.
+
+iroh-ble-transport supports macOS, iOS, Android, and Linux. In the future, it
+could support other platforms as well like Windows or Espressif (ESP32 family).
+
+> [!WARNING]
+>
+> Both iroh's custom transport API and this crate are experimental. Expect breaking changes.
+
+iroh-ble-transport is open source under the [AGPL
+license](https://www.gnu.org/licenses/agpl-3.0.en.html). Commercial licenses are
+available for use cases where the AGPL is not suitable. Contact the [number0
+team](https://cal.com/team/number-0/iroh-services?overlayCalendar=true) or
+[me@jakebot.org](mailto:me@jakebot.org) for details.
+
+## Performance notes
+
+Bluetooth connections on mobile devices typically max out at about \~3-5
+connections per device. Per connection, you can expect about 100kbps in decent
+conditions, but it's very dependent on the surrounding radio environment
+and devices that you're using.
+
+## Usage
+
+```rust theme={null}
+use iroh::endpoint::presets;
+use iroh::{Endpoint, SecretKey};
+use iroh_ble_transport::BleTransport;
+let secret_key = SecretKey::generate();
+
+let ble = BleTransport::builder().build(secret_key.public()).await?;
+
+let _endpoint = Endpoint::builder(presets::N0DisableRelay)
+    .hooks(ble.dedup_hook())
+    .add_custom_transport(ble.as_custom_transport())
+    .address_lookup(ble.address_lookup())
+    .secret_key(secret_key.clone())
+    .clear_ip_transports()
+    .bind()
+    .await?;
+```
+
+## Feature flag
+
+Custom transport support requires the `unstable-custom-transports` feature flag.
+The API is unstable and subject to change. See
+[#3845](https://github.com/n0-computer/iroh/pull/3845) for background.
+
+```toml theme={null}
+[dependencies]
+iroh = { version = "*", features = ["unstable-custom-transports"] }
+```
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

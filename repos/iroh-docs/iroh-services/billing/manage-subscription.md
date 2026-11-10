@@ -1,0 +1,62 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.iroh.computer/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Manage Your Subscription
+
+> Upgrade, downgrade, or cancel your Iroh Services subscription
+
+Manage your subscription from the [Iroh Services dashboard](https://services.iroh.computer).
+
+## Upgrade your plan
+
+1. Go to your project dashboard.
+2. Navigate to **Settings** > **Billing**.
+3. Select the plan you'd like to upgrade to.
+4. Confirm the change.
+
+Upgrades take effect immediately.
+
+## Remove relays
+
+Each Dedicated relay is billed hourly per region as an add-on to Pro. Charges
+are calculated based on the number of hours the relay was active. Remove relays
+you no longer need before the next billing cycle.
+
+1. Go to your project dashboard.
+2. Navigate to **Relays**.
+3. Click the three dot menu next to any custom relay to remove it.
+
+## Downgrade your plan
+
+In order to downgrade from Pro to Free, you need to remove any relays first.
+
+1. Go to your project dashboard.
+2. Navigate to **Settings** > **Billing**.
+3. Select a lower-tier plan.
+4. Confirm the change.
+
+## Cancel your subscription
+
+After cancellation, your data will be retained according to the Free plan's
+retention policy. There is no immediate deletion of data upon cancellation, but
+you will lose access to any features that are not included in the Free plan. If
+you decide to re-subscribe in the future, your data may still be accessible, but
+we cannot guarantee its availability because data cleanup may have occurred.
+
+1. Go to your project dashboard.
+2. Navigate to **Settings** > **Billing**.
+3. Click **Cancel subscription**.
+
+## Update payment method
+
+1. Go to your project dashboard.
+2. Navigate to **Settings** > **Billing**.
+3. Click **Payment method** to add or update your card on file.
+
+## Invoices
+
+Invoices are generated monthly and available in the **Billing** section of your dashboard. You can download past invoices at any time.
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

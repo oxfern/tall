@@ -1,0 +1,186 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.iroh.computer/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Security & Privacy
+
+iroh is designed with security and privacy as core principles. This document
+outlines the key security and privacy features of iroh, as well as best
+practices for deploying and using iroh in a secure manner.
+
+## Data Privacy with End-to-End Encryption
+
+All data transmitted between iroh endpoints is protected with end-to-end
+encryption. This means that data is encrypted on the sender's device and can only
+be decrypted by the intended recipient. Even relay servers that facilitate
+connections between endpoints cannot read the data being transmitted.
+
+End-to-end encryption is achieved using modern cryptographic algorithms and protocols,
+ensuring that data remains confidential and secure during transit. By default,
+iroh uses Ed25519 keys for endpoint identities and encryption. If you require
+different cryptographic algorithms, you can configure iroh to use them during
+endpoint creation.
+
+[Contact us for assistance](https://n0.computer/) with custom cryptographic configurations.
+
+## Public Relays
+
+iroh is by default configured to use shared public infrastructure that is
+operated by [n0.computer](https://n0.computer) . Because traffic is end-to-end
+encrypted, relays are not able to read any of the traffic that they forward or
+help connect.  However, the relays are able to see metadata about connections,
+such as source and destination IP addresses, connection times, and the amount of
+relayed data.
+
+We monitor the public relays for abuse and malicious activity. If we detect
+abuse, we reserve the right to block offending IP addresses or users from
+accessing the public relays.
+
+## Protecting leakage of IP Addresses
+
+Any direct connection between two devices stands a high chance of being the fastest
+connection, but always requires IP addresses to be disclosed. As with the majority
+of the deployed internet stack today, when two endpoints establish a direct
+connection, they expose and exchange their IP addresses to each other.
+
+IP address privacy considerations are primarily relevant for consumer or peer-to-peer applications
+where strangers or untrusted parties connect directly over the internet. In these
+scenarios, developers cannot guarantee anonymity or trust between endpoints, and
+exposing IP addresses can lead to privacy risks such as location tracking or
+targeted attacks.
+
+To mitigate these risks, we recommend the following strategies to protect IP
+address privacy when using iroh, depending on your specific use case and threat model:
+
+### Basic Protection: Use dedicated infrastructure
+
+If you own the infrastructure, run your own DNS server, and
+manage the devices connecting to your network, you have control over the network
+topology and can implement appropriate security measures. We do not recommend using
+public relays for production systems, as this is shared public
+infrastructure that has no guarantees around privacy or uptime.
+
+We recommend reviewing our [dedicated
+infrastructure](https://docs.iroh.computer/deployment/dedicated-infrastructure.md) guidance to set up relay
+and DNS infrastructure that fits your needs.
+
+### More protection: Use Tor or Similar Onion Routing
+
+Services like Tor provide onion routing, which encrypts packet metadata for each
+relay in the route. This offers strong IP privacy guarantees through multi-hop
+routing with layered encryption.
+
+Iroh supports custom transports and there is a [Tor
+implementation](https://docs.iroh.computer/transports/tor.md) available for iroh endpoints. Both sides of a
+connection must support the same transport, so both endpoints must have Tor installed and be configured accordingly.
+
+### Upcoming
+
+#### Relay-Only Mode
+
+Upcoming releases of iroh will support disabling hole-punching to send all traffic
+exclusively through relays. This provides IP privacy with some important caveats:
+
+* **Single-hop routing**: Traffic passes through one relay, not multiple hops
+* **Trust required**: The relay operator can technically see which endpoints are
+  communicating and their IP addresses
+* **Data remains encrypted**: The relay cannot read the actual content due to
+  end-to-end encryption
+
+This mode is suitable when you trust your relay infrastructure but still want to
+avoid direct IP exposure between endpoints.
+
+#### Multi-Hop Relay Routing
+
+We've explored the possibility of adding multi-hop relay routing to iroh. While
+technically feasible, this feature is not currently on the near-term roadmap.
+
+It's important to note that even with multi-hop relay routing, this would not be
+equivalent to onion routing. True onion routing requires encrypting packet metadata
+for each relay in the route, which would require significant protocol changes.
+
+If these features are interesting to you, please [contact us](https://n0.computer/)
+to discuss your specific requirements.
+
+## Questions from security reviews
+
+These are the questions that come up when a network or security team reviews an
+application built on iroh. For the firewall side of that review, see
+[Deploying to enterprise networks](https://docs.iroh.computer/configuring-networks.md).
+
+### Can the relay operator read our data?
+
+No. Traffic is encrypted end to end between the two devices. A relay forwards
+encrypted bytes and holds no key that can decrypt them.
+
+This holds for every relay: ones you run, dedicated ones from Iroh Services, and
+the shared public ones. It also means running the relay yourself does not give
+you visibility into the contents. What it gives you is control of the path.
+
+### What can a relay see?
+
+The identities of the devices connected to it, which pairs are exchanging
+traffic, when, and how much. It cannot see file names, message contents, or
+anything else inside the connection.
+
+Once two devices establish a direct connection, their traffic stops flowing
+through the relay, so this visibility covers the period before that plus any
+connection that never manages to go direct.
+
+A relay is also not told when a pair goes direct. From its point of view traffic
+simply stops, and it cannot distinguish a pair that is still talking over a direct
+path from one that finished and disconnected. So a relay cannot reliably infer how
+long two devices communicated or how much they exchanged in total, only what it
+carried itself.
+
+That connection metadata is a real disclosure, and it is a fair thing to care
+about. If it matters to you, run your own relay and it stays with you.
+
+### Can we inspect or log the contents?
+
+No, and this is not a property of the UDP path specifically. The relay
+connection on port 443 is also encrypted end to end, so a TLS inspection
+appliance sees encrypted data either way.
+
+If your policy requires visibility into content, the place to get it is the
+application, not the network. Your developers can log what the application sends
+and receives. Running your own relay gives you full control of the path and the
+connection metadata, but not the contents.
+
+### What actually leaves our network?
+
+Four things:
+
+1. Encrypted connections to relay servers: the ones your application is
+   configured with, plus the relay that any device you connect to has chosen for
+   itself.
+2. A small signed record published to `dns.iroh.link`, containing the device's
+   public key and which relay it is using. **Internal IP addresses are not
+   published by default.** iroh deliberately filters them out to avoid leaking
+   them to a public server.
+3. DNS lookups for the devices you connect to.
+4. If direct connections are allowed, UDP traffic to the other device, which
+   reveals your public IP address to that device. This is true of any direct
+   connection between two computers, and is covered in more depth in
+   [Protecting leakage of IP Addresses](#protecting-leakage-of-ip-addresses).
+
+### Can we control which of our devices are allowed to use it?
+
+Yes, on relays you run yourself. You can admit a specific list of devices or
+require a shared password, configured on the relay itself. See the
+[relay documentation](https://github.com/n0-computer/iroh/tree/main/iroh-relay).
+Dedicated relays from Iroh Services with authentication enabled do this for you,
+and only admit devices belonging to your project.
+
+On the shared public relays, no. Any application that knows the URL can connect.
+
+### Can we turn parts of it off?
+
+Yes. Direct connections, automatic router port opening, local network discovery,
+and even relaying itself can each be disabled independently. Each one is a change
+your developers make in the application, and
+[Deploying to enterprise networks](https://docs.iroh.computer/configuring-networks.md) has the specifics for
+each.
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

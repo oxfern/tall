@@ -1,0 +1,512 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.iroh.computer/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Deploying to enterprise networks
+
+> What iroh does on your network, what to allow through your firewall, and how to keep it under your control
+
+If a team at your company wants to ship software built on iroh, this page tells
+you what it will do on your network, what you need to allow, and what you can
+control.
+
+## The one-minute version
+
+* **All traffic is encrypted end to end**, including traffic that passes through
+  a relay server. The relay operator cannot read it.
+* **You do not have to open anything inward.** There is no inbound rule to write,
+  no port to forward, and no static IP to assign. Devices do listen on the UDP
+  sockets they bind, and by default iroh asks your gateway for an external port
+  over UPnP or NAT-PMP, which you can switch off. See
+  [Automatic port opening](#if-automatic-port-opening-is-enabled).
+* **Allowing outbound UDP is optional, but recommended.** It makes connections faster and
+  cheaper, by being direct, but iroh works without it.
+* **You can run all of the infrastructure yourself** if you do not want traffic
+  leaving your network.
+
+If you have set up a video conferencing or VoIP system, iroh's requirements will
+look familiar. It needs the same two things Teams, Zoom, and WebEx need: a way
+for a device to learn its own public address, and a server that can pass traffic
+along when two devices cannot reach each other directly.
+
+### Checklist
+
+Firewall and DNS:
+
+* Allow outbound TCP 443 to the relay hostnames with WebSocket support
+* Allow outbound TCP 443 to `dns.iroh.link`, or plan to replace address lookup
+* Confirm your DNS filtering does not strip TXT records for `dns.iroh.link`
+* Allow outbound UDP 7842 to the relay hostnames
+* Allow outbound UDP to any destination port. A narrowed range will not work;
+  see [why a narrowed range fails](#if-you-allowlisted-a-range-of-udp-ports-and-iroh-still-failed)
+* Set your firewall's UDP idle timeout to 30 seconds or more
+* Turn off client isolation on wireless segments where devices should reach each other
+* Test with `iroh-doctor report` from inside the network
+
+Ask your developers to:
+
+* Tell you which relay hostnames the application is configured with, before
+  you write any of the rules above
+* Use the operating system certificate store if you inspect TLS traffic
+* Configure the proxy address if outbound traffic must be proxied
+* Disable automatic port opening, or confirm your gateway has UPnP and NAT-PMP
+  turned off already
+
+## What iroh does on your network
+
+iroh is a networking library that your developers build into an application. Its
+job is to connect two devices directly, so data moves between them instead of
+through a central server.
+
+A device running iroh produces three kinds of traffic.
+
+**Relay connections.** Each device opens one or a few long-lived encrypted
+connections to *relay servers* on TCP port 443, as HTTPS requests that upgrade to
+a WebSocket. This is the role a TURN server plays in a VoIP system. The relay
+introduces two devices to each other and carries their traffic if they cannot
+reach each other directly. It is always used, at minimum for the introduction.
+
+**Address lookup.** To find another device, iroh looks up a DNS record for it.
+This is an ordinary DNS query through your own resolver.
+
+**Direct connections.** Once introduced, the two devices try to connect straight
+to each other over UDP. This part is optional. If a direct connection is not
+possible for some reason, the bi-directional connection continues to send data
+using the relay.
+
+## What to allow
+
+### Required
+
+| Allow | To | Protocol | Why |
+| - | - | - | - |
+| Outbound TCP 443 | Your relay hostnames | **HTTPS, upgraded to WebSocket** | The relay connection itself, and the latency checks that pick the closest relay |
+| Outbound TCP 443 | `dns.iroh.link` | HTTPS | Publishing the device's address so others can find it |
+| Normal DNS (UDP/TCP 53) | Your own resolver | DNS | Looking up other devices |
+
+> [!WARNING]
+>
+> **Opening TCP 443 is not always enough on its own.** The relay connection starts
+> as a standard HTTPS request and then upgrades to a WebSocket, which is the same
+> thing a chat application does. If you run an application-aware firewall, a web
+> filter, or a proxy that permits ordinary web browsing on port 443 but blocks
+> WebSocket upgrades, iroh will not connect at all.
+>
+> Allow the relay hostnames as a WebSocket destination, not just as an HTTPS one.
+
+### Recommended
+
+Allowing these lets devices connect directly instead of relaying everything.
+
+| Allow | To | Why |
+| - | - | - |
+| Outbound UDP 7842 | Your relay hostnames | Lets a device learn its own public address. This is the job STUN does in a VoIP system. |
+| Outbound UDP, any destination port | Any address | The direct connection between two devices |
+
+### Optional
+
+| Traffic | What it is | Default |
+| - | - | - |
+| UDP 1900 and UDP 5351 on your local network | Asking the gateway to open an external port (UPnP, NAT-PMP, PCP). Opens an inbound path if your gateway honors it. | On by default, and safe to turn off |
+| UDP 5353 multicast on the local network | Finding devices on the same office network | Off unless your developers enable it |
+
+### Hostnames to allow
+
+Which relay hostnames to allow depends on how the application is configured. Ask
+your developers, and expect one of three answers.
+
+**Relays you run yourself.** The hostnames are ones you already control, on your
+own network or in your own cloud account. See
+[Help running your own relay](#help-running-your-own-relay).
+
+**Dedicated relays.** Servers provisioned for your project through Iroh Services
+and used by nobody else, on hostnames given to you when they are set up.
+
+**The shared public relays.** Run by [n0](https://n0.computer), the company that
+builds iroh, and shared with every other iroh developer worldwide. They are
+meant for development and testing rather than production, so treat this as a
+sign the application has not been configured yet. The defaults are:
+
+```
+use1-1.relay.n0.iroh.link
+usw1-1.relay.n0.iroh.link
+euc1-1.relay.n0.iroh.link
+aps1-1.relay.n0.iroh.link
+```
+
+**DNS Service.** The application publishes its address to `dns.iroh.link`, which
+is a shared service run by n0. It is used no matter which relays the
+application points at, unless your developers have replaced
+address lookup with something you run.
+
+If your developers use the [Iroh Services dashboard for monitoring or
+diagnostics](https://services.iroh.computer), that traffic travels over the
+connections above and needs no extra firewall rules.
+
+## Common situations
+
+### If you block outbound UDP...
+
+**What you will see:** everything works, but more slowly, and all traffic goes
+through the relay.
+
+**What is happening:** devices cannot reach each other directly, so every byte
+takes a round trip through a relay server.
+
+**What to do:** nothing, if you are willing to accept the cost. It is worth
+understanding the trade-off before you decide.
+
+The cost of blocking UDP is added delay proportional to how far away the nearest
+relay is, transfer speeds limited by the relay rather than by your own internet
+connection, and bandwidth charges on the relay that you either pay for directly
+or share with other users of the public relays.
+
+Why allowing it is usually reasonable:
+
+* **This is QUIC, not loose datagrams.** QUIC is a connection-oriented,
+  congestion-controlled protocol with a TLS 1.3 handshake. It behaves like a TCP
+  connection that happens to run over UDP.
+* **Your network almost certainly carries it already.** Chrome, Edge, and Safari
+  use HTTP/3 over UDP port 443 for a large share of the web, and every major
+  conferencing product uses UDP for media.
+* **It is outbound-first.** You write no inbound rule, because the packets coming
+  back arrive on a flow your firewall already allowed out. The one exception is
+  automatic port opening, which is
+  [separately controllable](#if-automatic-port-opening-is-enabled).
+* **Idle entries clear quickly.** iroh sends a keepalive while a connection is
+  active and gives up on an idle path after a specified timeout. A UDP idle
+  timeout of 30 seconds or more on your firewall is recommended.
+
+One thing that does not work: allowing UDP only to port 443. Direct connections
+use operating-system-assigned ports on both ends, so a rule scoped to port 443
+gains you nothing. Narrowing the range does not work either, for the reasons in
+the next section.
+
+> [!TIP]
+>
+> Two devices on the same office network connect directly to each other regardless
+> of whether your perimeter firewall allows UDP. That traffic is governed by your
+> internal network policy, so desk-to-desk transfers can stay local even when
+> outbound UDP is blocked.
+
+On a network where UDP is silently dropped, the
+application can skip trying, which removes probe traffic that shows up in
+intrusion detection logs and speeds up startup:
+
+```rust theme={null}
+use iroh::endpoint::{presets, PortmapperConfig};
+use iroh::Endpoint;
+
+let endpoint = Endpoint::builder(presets::N0)
+    // No UDP at all: relay connections only.
+    .clear_ip_transports()
+    // Do not ask the router to open ports.
+    .portmapper_config(PortmapperConfig::Disabled)
+    .bind()
+    .await?;
+```
+
+### If you allowlisted a range of UDP ports and iroh still failed...
+
+**What you will see:** you permit a range such as 50000-60000, and connections
+still fail or fall back to the relay, because iroh used a port just outside it
+such as 49970.
+
+**What is happening:** iroh does not choose its own port numbers. It binds each
+socket with port 0, which asks the operating system for any free port, and the
+operating system picks from its *ephemeral port range*. A firewall rule for
+outbound UDP matches on the source port, the destination port, or both, and
+neither is predictable:
+
+* The **source port** is assigned by the operating system on your own device, out
+  of a range that the operating system decides.
+* The **destination port** is the other device's source port, assigned by *its*
+  operating system. You have no visibility into it and no control over it.
+
+IANA reserves 49152-65535 for ephemeral ports, but not every operating system
+follows that, and the range is itself configurable by whoever administers the
+machine.
+
+| System | Typical default range | Check it with |
+| - | - | - |
+| Linux, and Android | 32768-60999 | `cat /proc/sys/net/ipv4/ip_local_port_range` |
+| Windows | 49152-65535 | `netsh int ipv4 show dynamicport udp` |
+| macOS | 49152-65535 | `sysctl net.inet.ip.portrange.first net.inet.ip.portrange.last` |
+
+Linux is the one that catches people out, because its default range starts well
+below the IANA number. Treat the table as a starting point and check your own
+machines rather than trusting it.
+
+**What to do:** two rules work, and guessing a range is not one of them.
+
+* **Allow outbound UDP to any destination port.** This is the supported
+  configuration and the one we recommend.
+* **Have the application bind fixed ports**, and scope your rule to exactly
+  those. Note that this constrains the *source* port only. The destination is
+  still whatever the far device chose, so this helps only if your firewall can
+  match on source port.
+
+**For your developers.** One port is bound per socket address, so a device using
+both IPv4 and IPv6 needs two. Bind at most one address per family, and clear the
+defaults first, because binding more than one per family gives undefined routing
+behavior:
+
+```rust theme={null}
+use iroh::{Endpoint, endpoint::presets};
+
+let endpoint = Endpoint::builder(presets::N0)
+    .clear_ip_transports()
+    .bind_addr("0.0.0.0:55555")?
+    .bind_addr("[::]:55556")?
+    .bind()
+    .await?;
+```
+
+Read the port numbers from your own configuration rather than hard-coding them,
+so they can be set to whatever the network team allowed without a new build.
+
+A fixed port may already be in use, in which case binding fails. If you would
+rather start with OS-assigned ports than not start at all, match on
+`BindError::Sockets` and build the endpoint again without the fixed addresses:
+
+```rust theme={null}
+use iroh::endpoint::BindError;
+
+let endpoint = match Endpoint::builder(presets::N0)
+    .clear_ip_transports()
+    .bind_addr("0.0.0.0:55555")?
+    .bind_addr("[::]:55556")?
+    .bind()
+    .await
+{
+    Ok(endpoint) => endpoint,
+    Err(BindError::Sockets { .. }) => {
+        tracing::warn!("configured ports unavailable, letting the OS assign them");
+        Endpoint::builder(presets::N0).bind().await?
+    }
+    Err(err) => return Err(err.into()),
+};
+```
+
+### If you inspect TLS traffic...
+
+**What you will see:** the application cannot connect at all, and logs show a
+certificate error, even though your inspection appliance's certificate authority
+is installed on the machine.
+
+**What is happening:** iroh checks relay certificates against a list of
+authorities built into the application. It does not read the operating system's
+certificate store, so the certificate authority your device management tool
+installed is not trusted.
+
+**What to do:** this is an application change, not a network one.
+
+**For your developers.** Switch iroh to the operating system's certificate
+store, which contains the corporate certificate authority:
+
+```rust theme={null}
+use iroh::tls::CaTlsConfig;
+
+let endpoint = Endpoint::builder(presets::N0)
+    .ca_tls_config(CaTlsConfig::system())
+    .bind()
+    .await?;
+```
+
+This affects the relay connection only. Direct connections between two devices
+identify each other by their own cryptographic keys rather than by website
+certificates, so an inspection appliance cannot sit in the middle of one. In
+practice it would never be in that path anyway.
+
+### If all of your traffic must go through a proxy...
+
+**What you will see:** the application cannot reach a relay at all, because it
+tries to connect directly rather than through the proxy.
+
+**What to do:** iroh can send its relay traffic through an HTTP proxy using
+`CONNECT`, the same way a browser does. This is an application change.
+
+**For your developers:**
+
+```rust theme={null}
+let endpoint = Endpoint::builder(presets::N0)
+    // Reads HTTP_PROXY, http_proxy, HTTPS_PROXY, https_proxy, in that order.
+    .proxy_from_env()
+    .bind()
+    .await?;
+```
+
+Use `.proxy_url(url)` to set the address explicitly. A proxy only carries the
+relay connection, so a proxied deployment usually ends up relaying everything.
+
+### If your DNS filtering blocks iroh...
+
+**What you will see:** connections work when the application is given an address
+directly, but fail when it tries to find a device by its identity. That split is
+a good sign the problem is DNS rather than the firewall.
+
+**What is happening:** iroh finds devices by looking up a DNS TXT record under
+`dns.iroh.link`. Two common configurations break this. Some DNS security
+products block or strip TXT records because attackers sometimes use them to
+smuggle data. Some internal DNS servers do not forward lookups for outside
+domains such as `iroh.link`.
+
+**What to do:** allow `dns.iroh.link` in your DNS filtering policy. If you would
+rather not allow it at all, your developers can turn off DNS-based lookup and
+distribute addresses through whatever system you already use.
+
+### Guest Wi-Fi or wireless client isolation
+
+**What you will see:** devices on the same wireless network relay their traffic
+instead of connecting directly.
+
+**What is happening:** two access point settings prevent local connections.
+*Client isolation* (also called AP isolation, station isolation, or peer-to-peer
+blocking) stops wireless devices from addressing each other, and is on by
+default on most guest networks. *Multicast filtering* prevents devices from
+finding each other on the local network.
+
+**What to do:** turn client isolation off on segments where your devices should
+be able to reach each other. Neither setting breaks iroh. Both just push traffic
+onto the relay that could have stayed on your own network.
+
+### If automatic port opening is enabled...
+
+**What is happening:** by default iroh asks the local gateway to open an external
+port for the device, using UPnP, NAT-PMP, or PCP. If your gateway implements one
+of those and is configured to honor requests, iroh gets a port mapped and peers
+can reach the device directly through it.
+
+This is the one thing iroh does that changes your perimeter without anyone asking
+you, so it is worth being explicit about. It is on in a default build. Two things
+soften it in practice:
+
+* Most business-grade gateways either do not implement these protocols or have
+  them turned off, in which case the request is ignored and nothing changes.
+* Connectivity does not depend on it. Without a port mapping, iroh falls back to
+  ordinary NAT traversal and then to the relay.
+
+The UPnP discovery step also multicasts to `239.255.255.250:1900`, which is a
+common intrusion detection signature and can raise firewall prompts on some
+client operating systems.
+
+**What to do:** if your gateway has UPnP or NAT-PMP enabled and you would rather
+iroh did not use it, you can turn those protocols off at the gateway, which
+affects everything on the network, or have your developers disable it in the
+application, which is the narrower fix. On a managed network, disabling it in the
+application is the reasonable default.
+
+To check whether your gateway is answering these requests at all, run the
+connectivity report described in
+[Testing your configuration](#testing-your-configuration). It includes a port
+mapping probe.
+
+**For your developers:** `.portmapper_config(PortmapperConfig::Disabled)` on the
+endpoint builder, as in the UDP example above.
+
+## Airgapped networks
+
+If no iroh traffic may leave your network, you can replace every piece of
+infrastructure outside it with your own, up to and including running fully
+airgapped with no internet connection at all. This is the right answer to most
+concerns about relays, third-party servers, and data residency.
+
+There are three pieces, and you can replace them independently.
+
+**1. Run your own relay servers**
+
+Run the [relay software](https://github.com/n0-computer/iroh/tree/main/iroh-relay)
+on servers your devices can reach, and have your developers point the
+application at them.
+
+**2. Run your own address lookup, or skip it**
+
+Either run an internal
+[iroh-dns-server](https://github.com/n0-computer/iroh/tree/main/iroh-dns-server),
+or drop address lookup entirely and distribute device addresses through a system
+you already have.
+
+**3. Have the application stop using the shared defaults**
+
+This is a one-line change for your developers. It removes the shared public
+relays and DNS server from the application's configuration.
+
+**For your developers:**
+
+```rust theme={null}
+use iroh::{Endpoint, RelayMap, RelayMode, RelayUrl, endpoint::presets};
+
+let relay: RelayUrl = "https://relay.internal.example.com".parse()?;
+
+// presets::Empty starts with no external infrastructure configured.
+let endpoint = Endpoint::builder(presets::Empty)
+    .relay_mode(RelayMode::Custom(RelayMap::from_iter([relay])))
+    .bind()
+    .await?;
+```
+
+**Fully airgapped.** With no internet connection at all, devices can find each
+other by multicast on the local network and connect directly, with no relay
+involved. This requires your switches to forward multicast and client isolation
+to be off. Your developers will find the setup in
+[mDNS address lookup](https://docs.iroh.computer/connecting/local-address-lookup.md).
+
+## Help running your own relay
+
+If you want to run your own relay servers, you can! Everything is open source. See [Dedicated
+Infrastructure](https://docs.iroh.computer/deployment/dedicated-infrastructure.md) and
+[contact us](https://n0.computer/) if you want help with the setup.
+
+## Multiple offices and sites
+
+Skip this section if everything runs at one site.
+
+Each device picks a *home relay*, the one that answers fastest, and publishes
+which one it chose. To reach a device, another device connects to **that
+device's** home relay, not its own. So the requirement is not that both sites
+use the same relay. It is that each side can reach the relay the other side
+picked.
+
+That distinction causes most multi-site problems.
+
+| What you set up | What goes wrong | What to do |
+| - | - | - |
+| A relay at each site, neither reachable from the other | Devices at each site pick their local relay. Neither site can reach the other's, so cross-site connections never work. | Deploy one relay both sites can reach, or make both relays reachable from both sites and list both in the application configuration. |
+| Both relays reachable, but the application at one site is only configured with one of them | Devices dial the other relay without the password and get refused. Often looks intermittent or one-directional, because it depends which relay each device happened to pick. | Ship the same relay list and the same password to every site. |
+| An internal address lookup server at one site only | The other site cannot find devices by identity. Connections by explicit address still work. | Make the lookup server reachable from both sites, or distribute addresses another way. |
+| Site-to-site links that allow TCP 443 but not UDP | Traffic between two of your own offices goes out to a relay and back. | Allow UDP between your site subnets. This is an internal routing policy question, not a perimeter one. |
+
+**What survives a network outage.** Connections that are already direct keep
+working when the relay becomes unreachable, because they no longer depend on it.
+What stops is anything needing the relay: starting new connections, reconnecting
+after a drop, and publishing addresses.
+
+If a site has to keep working through a total internet outage, ask your
+developers to enable local network discovery alongside the normal relay
+configuration. Devices on the same network segment will keep finding each other
+while the link is down, and cross-site connections resume when it returns.
+
+| Your situation | What to deploy |
+| - | - |
+| One site | One internal relay. Add a second for redundancy. |
+| Several sites on a company WAN | Two relays at well-connected sites, both reachable from everywhere, both in the application configuration. Devices sort out which is closer. |
+| Sites with no network path between them | Each site is its own separate network. Connecting them needs a relay somewhere both can reach, such as a DMZ or a cloud server. |
+| A site that must survive losing its internet link | Normal relay configuration plus local network discovery. |
+
+## Testing your configuration
+
+See [Diagnose a connectivity issue](https://docs.iroh.computer/iroh-services/net-diagnostics/quickstart.md)
+for a script you can run from inside your network to confirm the application can
+reach the relays and that direct connections work. It is a quick way to check
+that your firewall rules are correct, and it produces a report you can send to
+your developers to see that everything is working.
+
+## Security and privacy
+
+The questions a security or network review raises, including what a relay can
+see, what actually leaves your network, and what running your own relay does and
+does not change, are answered in
+[Security & Privacy](https://docs.iroh.computer/concepts/security-privacy.md#questions-from-security-reviews).
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

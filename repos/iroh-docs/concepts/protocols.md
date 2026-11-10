@@ -1,0 +1,115 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.iroh.computer/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Protocols
+
+A **protocol** defines how two iroh endpoints exchange messages and coordinate
+behavior. Once you've established an iroh connection, protocols determine what
+happens next: transferring files, syncing documents, broadcasting messages, or
+whatever your application needs.
+
+iroh provides the pool of encrypted QUIC connections - protocols define what to
+do with them.
+
+## Client-server protocols
+
+Sometimes it is best to have classical client and server roles at the application
+level. Iroh connections do support this, and many n0 protocols are written in this
+way. [Sendme], [dumbpipe], [iroh-blobs] and all [irpc] based protocols have clear
+client and server roles at the application level.
+
+## Peer-to-peer protocols
+
+Unlike HTTP's client/server model where one side only sends requests and the
+other only responds, peer-to-peer protocols support **both**
+initiating and accepting connections on the same endpoint.
+
+This means:
+
+* Any peer can request data from any other peer
+* Any peer can offer data to any other peer
+* Roles can change over time (today's client is tomorrow's server)
+
+[Gossip] and [docs] are examples of peer-to-peer protocols.
+
+You can still build client/server-style protocols if your application needs that
+distinction, but iroh's P2P foundation gives you more flexibility.
+
+## Building blocks, not a framework
+
+iroh is designed as a set of composable building blocks. The core `iroh` crate
+gives you endpoints and connections. From there, you choose:
+
+**Use existing protocols** - Pick from protocols built by the iroh community:
+
+* [`iroh-blobs`](https://docs.iroh.computer/protocols/blobs) - Content-addressed blob storage and transfer
+* [`iroh-docs`](https://docs.iroh.computer/protocols/documents) - Collaborative key-value documents with CRDTs
+* [`iroh-gossip`](https://docs.iroh.computer/connecting/gossip) - Topic-based message broadcasting in swarms
+* [`iroh-automerge`](https://github.com/n0-computer/iroh-examples/tree/main/iroh-automerge) - Automerge document sync (experimental)
+
+**Build your own** - Create custom protocols using:
+
+* Raw QUIC streams via iroh's connection API (most common approach)
+* RPC frameworks like [`irpc`](https://github.com/n0-computer/irpc) with [`iroh-irpc`](https://github.com/n0-computer/irpc)
+
+Each protocol is a separate crate you can add as needed. You're never locked
+into a particular set of protocols - mix and match, or build something entirely
+new.
+
+## How protocols work
+
+### ALPN identifiers
+
+Protocols use [Application-Layer Protocol
+Negotiation](https://datatracker.ietf.org/doc/html/rfc7301) (ALPN) strings to
+identify themselves. When an endpoint accepts a connection, it uses the ALPN to
+route to the correct protocol handler.
+
+For example, `iroh-blobs` uses the ALPN `/iroh-bytes/VERSION`. When a peer connects
+with this ALPN, the endpoint knows to handle it as a blobs request.
+
+You can also use multiple ALPN identifiers for version negotiation. A connecting
+peer might offer `/my-protocol/2` and `/my-protocol/1`, letting the accepting
+peer respond with whichever version it supports.
+
+### The accept loop
+
+When your endpoint receives an incoming connection, it checks the requested ALPN
+and routes to the appropriate protocol handler. This is similar to HTTP routing,
+but happens at the connection level rather than per-request.
+
+You can handle this routing yourself by accepting connections directly, or use
+iroh's [`Router`](https://docs.rs/iroh/latest/iroh/protocol/struct.Router.html)
+to automatically route connections to registered protocol handlers.
+
+## Learn more
+
+Ready to start building with protocols?
+
+**Using existing protocols:**
+
+* [Blob storage with iroh-blobs](https://docs.iroh.computer/protocols/blobs.md)
+* [Document collaboration with iroh-docs](https://docs.iroh.computer/protocols/documents.md)
+* [Message broadcasting with iroh-gossip](https://docs.iroh.computer/connecting/gossip.md)
+
+**Building your own:**
+
+* [Write your own protocol guide](https://docs.iroh.computer/protocols/writing-a-protocol.md)
+* [QUIC streaming patterns](https://docs.iroh.computer/protocols/using-quic.md)
+* [Router API documentation](https://docs.rs/iroh/latest/iroh/protocol/struct.Router.html)
+
+[Sendme]: https://github.com/n0-computer/sendme
+
+[dumbpipe]: https://github.com/n0-computer/dumbpipe
+
+[iroh-blobs]: https://docs.iroh.computer/protocols/blobs.md
+
+[irpc]: https://docs.rs/irpc
+
+[Gossip]: https://docs.iroh.computer/connecting/gossip.md
+
+[docs]: https://docs.iroh.computer/protocols/documents.md
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

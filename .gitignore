@@ -1,0 +1,5 @@
+/target
+/web/dist
+.DS_Store
+# Finder folder icons
+Icon?

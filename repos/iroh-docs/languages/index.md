@@ -1,0 +1,79 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.iroh.computer/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Overview
+
+> Use iroh from Rust, Python, Swift, Kotlin, JavaScript, C, or Go.
+
+iroh is available in Rust, Python, Swift, Kotlin, JavaScript, C, and Go. Pick the language that fits your app and follow its guide to get a working endpoint in minutes.
+
+| Language | Status | Platform notes |
+| - | - | - |
+| [Rust](https://docs.iroh.computer/languages/rust.md) | Official | Primary implementation |
+| [Python](https://docs.iroh.computer/languages/python.md) | Official | Prebuilt wheels |
+| [Swift](https://docs.iroh.computer/languages/swift.md) | Official | iOS + macOS |
+| [Kotlin](https://docs.iroh.computer/languages/kotlin.md) | Official | JVM + Android |
+| [JavaScript](https://docs.iroh.computer/languages/javascript.md) | Official | Node.js via N-API |
+| [C](https://docs.iroh.computer/languages/c.md) | Official | Raw FFI via [iroh-c-ffi](https://github.com/n0-computer/iroh-c-ffi), build from source |
+| [Go](https://docs.iroh.computer/languages/go.md) | Community | FFI bindings via [iroh-ffi](https://github.com/n0-computer/iroh-ffi) |
+
+"Community" bindings are built and maintained by community members rather than
+the number0 team. They aren't covered by official support, may lag behind
+iroh releases, and cover fewer platforms — check each binding's page for
+current status before depending on it.
+
+All six official bindings share the same basic API surface for sending streams
+or datagrams over QUIC.  The Rust language bindings are the most complete and
+up-to-date, and contain custom configuration and protocol features.
+
+> [card] [hello-iroh-ffi example app](https://github.com/n0-computer/hello-iroh-ffi)
+>
+> One demo, four languages: SwiftUI and Jetpack Compose apps plus Python and Node console readers, all speaking the same protocol over iroh. A good starting point for any of the bindings.
+
+## Platform support
+
+The [n0.computer](https://n0.computer) team offers official support for the following platforms.
+
+| Platform | Rust | Python | Swift | Kotlin | JavaScript | C | Go |
+| - | - | - | - | - | - | - | - |
+| iOS (device + sim) | ✓ | — | ✓ | — | — | ✗ | - |
+| Android (aarch64, armv7) | ✓ | — | — | ✓ | ✓ | ✗ | - |
+| macOS arm64 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | - |
+| macOS x86\_64 | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ | - |
+| Linux x86\_64 (glibc) | ✓ | ✓ | — | ✓ | ✓ | ✓ | - |
+| Linux x86\_64 (musl) | ✓ | ✗ | — | ✗ | ✓ | ✗ | ✓ |
+| Linux aarch64 (glibc) | ✓ | ✓ | — | ✓ | ✓ | ✗ | - |
+| Linux aarch64 (musl) | ✓ | ✗ | — | ✗ | ✓ | ✗ | ✓ |
+| Linux armv7 | ✓ | ✗ | — | ✗ | ✓ | ✗ | - |
+| Windows x86\_64 | ✓ | ✓ | — | ✓ | ✓ | ✓ | - |
+| Windows aarch64 | ✓ | ✗ | — | ✗ | ✓ | ✗ | - |
+
+> [card] [Need a language we don't support?](https://cal.com/team/number-0/iroh-services)
+>
+> Get in touch and tell us what you're building. We can prioritize new bindings or help you maintain your own.
+
+## Build your own wrapper
+
+If you're comfortable with a little bit of Rust, you can write your own wrapper
+around iroh, a small application-specific binary that exposes functionality over
+a local HTTP server or daemon, or a full FFI wrapper from Rust to your target
+language. Either way, this gives you:
+
+* Full control over the API surface you expose
+* The ability to tailor it to your specific use case
+* Type-safe bindings for your language (with FFI)
+* Calls from any language (with an HTTP wrapper)
+
+While it's easy to get a first version working, **ongoing maintenance and
+testing is the hard part**. iroh is under active development, and keeping
+wrappers up to date with new releases, testing across platforms, and handling
+edge cases takes sustained effort. The [number0](https://n0.computer) team runs
+a testing lab for this purpose. If you need help, [schedule a meeting](https://cal.com/team/number-0/iroh-services) or [contact us](mailto:support@iroh.computer).
+
+## WebAssembly and browsers
+
+iroh compiles to WebAssembly for use in browsers. See [WebAssembly browser support](https://docs.iroh.computer/languages/wasm-browser.md) for the constraints and a working browser-echo example.
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

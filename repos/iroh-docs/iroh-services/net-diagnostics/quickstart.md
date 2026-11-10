@@ -1,0 +1,197 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.iroh.computer/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Diagnose a connectivity issue
+
+> Diagnose user connectivity issues with remote diagnostic reporting
+
+[YouTube video player](https://www.youtube.com/embed/XNqOYf9QxkM)
+
+Net Diagnostics lets you run network connectivity reports on your endpoints.
+
+Reports cover NAT type, UDP connectivity, relay latency, port
+mapping protocol availability, and direct addresses. Everything you need to
+debug connection issues.
+
+You can initiate reports from iroh-services, which will reach out to configured
+remote nodes that have authorized diagnostics, gather
+details about the endpoint's connectivity context, and forward the report to
+your project on iroh services to assess how to help your user get the best
+connection they can.
+
+### 1. Get your API key
+
+Create one from your project's **Settings → API Keys** tab. See [API Keys](https://docs.iroh.computer/iroh-services/access.md) for the full walkthrough. Then export it as an environment variable:
+
+```bash theme={null}
+export IROH_SERVICES_API_SECRET=<your-api-key>
+```
+
+### 2. Run the diagnostics client
+
+Clone the repository and run the `net_diagnostics` example:
+
+```bash theme={null}
+git clone https://github.com/n0-computer/iroh-services.git
+cd iroh-services
+cargo run --example net_diagnostics
+```
+
+Leave this terminal open. The example connects to iroh services, grants the diagnostics capability to your project, and waits for incoming diagnostics requests.
+
+### 3. Run a diagnostic from the dashboard
+
+Go to your project's **Endpoints** page. You should see the example client listed as an online endpoint. Click **Run Diagnostics** to generate a report.
+
+The report appears on the **Net Diagnostics** page and includes:
+
+* **NAT Type**: No NAT, Endpoint-Independent, Endpoint-Dependent, or Unknown
+* **UDP Connectivity**: IPv4 and IPv6 status with public addresses
+* **NAT Mapping**: whether mapping varies by destination (symmetric NAT detection)
+* **Direct Addresses**: local addresses the endpoint is listening on
+* **Port Mapping**: UPnP, PCP, and NAT-PMP availability
+* **Relay Latencies**: per-relay IPv4, IPv6, and HTTPS round-trip times
+* **Captive Portal**: detection of captive portal interference
+
+## Integrate Net Diagnostics into your app
+
+The example above uses a ready-made client. To get on-demand reports from your
+users' endpoints, wire the same integration into your own iroh app.
+
+### Add the dependency
+
+```bash theme={null}
+cargo add iroh-services
+```
+
+### Connect and grant the capability
+
+Build an `iroh_services::Client`, grant iroh services the
+`NetDiagnosticsCap::GetAny` capability so it can request diagnostics, and run a
+`ClientHost` so it can dial back into your endpoint.
+
+At startup, build a preset from the API key you exported in step 1 and bind your
+endpoint with it:
+
+```rust theme={null}
+let preset = iroh_services::preset().api_secret_from_env()?.build()?;
+let endpoint = Endpoint::bind(preset.clone()).await?;
+```
+
+Then pass that preset alongside the endpoint. Its `client_builder` hands the API
+key to the client, so you don't supply it twice:
+
+```rust theme={null}
+use anyhow::Result;
+use iroh::{Endpoint, protocol::Router};
+use iroh_services::{
+    ClientHost, CLIENT_HOST_ALPN, IrohServicesPreset, caps::NetDiagnosticsCap,
+};
+
+async fn setup_net_diagnostics(
+    preset: &IrohServicesPreset,
+    endpoint: &Endpoint,
+) -> Result<Router> {
+    // The remote_id is the id of the endpoint we'll be sending the network
+    // report to, derived from the API key's address
+    let remote_id = preset.api_secret().addr().id;
+
+    // Build the client
+    let client = preset.client_builder(endpoint).build().await?;
+
+    // Grant the GetAny capability so the platform can request diagnostics
+    // from this endpoint on demand
+    let client2 = client.clone();
+    tokio::spawn(async move {
+        client2
+            .grant_capability(remote_id, vec![NetDiagnosticsCap::GetAny])
+            .await
+            .unwrap();
+    });
+
+    // Set up a ClientHost so the platform can dial back into this endpoint
+    let host = ClientHost::new(endpoint);
+    let router = Router::builder(endpoint.clone())
+        .accept(CLIENT_HOST_ALPN, host)
+        .spawn();
+
+    Ok(router)
+}
+```
+
+For a complete runnable version, see the [`net_diagnostics` example](https://github.com/n0-computer/iroh-services/tree/main/examples/net_diagnostics.rs) in the `iroh-services` repository.
+
+### Register on your existing router
+
+The snippet above spawns a router that serves only `CLIENT_HOST_ALPN`. Most
+applications already run a `Router` with their own protocols. Register the
+handler on that same builder rather than spawning a second router:
+
+```rust theme={null}
+use iroh::protocol::Router;
+use iroh_services::{ClientHost, CLIENT_HOST_ALPN};
+
+let router = Router::builder(endpoint.clone())
+    .accept(MY_PROTOCOL_ALPN, my_protocol) // your application's protocols
+    .accept(CLIENT_HOST_ALPN, ClientHost::new(&endpoint)) // add this line
+    .spawn();
+```
+
+Calling `.spawn()` finalizes the router's set of protocols, so the
+`.accept(CLIENT_HOST_ALPN, ...)` call has to come before it. Register every
+ALPN your endpoint serves on the one router you spawn for that endpoint.
+
+### Report automatically at startup
+
+Dashboard-initiated reports only work while an endpoint is online, which is no
+help for a user whose app fails to connect and gets closed. Have the endpoint
+report itself instead: call `net_diagnostics(true)` once after building the
+client. It runs the probes locally and uploads the report to your project, so
+it's waiting on the **Net Diagnostics** page whether or not the endpoint is
+still running.
+
+```rust theme={null}
+// `true` uploads the report to iroh services; `false` keeps it local
+let report = client.net_diagnostics(true).await?;
+```
+
+This needs no capability grant and no `ClientHost` — the endpoint is pushing its
+own report rather than answering a request. Keep both if you also want
+on-demand reports from the dashboard.
+
+Startup is early enough that the endpoint may not have finished its first net
+report, so run it in a task rather than blocking your launch path:
+
+```rust theme={null}
+let client2 = client.clone();
+tokio::spawn(async move {
+    if let Err(err) = client2.net_diagnostics(true).await {
+        tracing::warn!("startup diagnostics failed: {err:?}");
+    }
+});
+```
+
+The [`net_diagnostics` example](https://github.com/n0-computer/iroh-services/tree/main/examples/net_diagnostics.rs)
+does this on every run.
+
+> [card] [Reading reports and troubleshooting](https://docs.iroh.computer/iroh-services/net-diagnostics/usage.md)
+>
+> Reference for interpreting a report (NAT type, connectivity summary) and fixing common setup problems.
+
+## Next steps
+
+> [card] [Add a relay](https://docs.iroh.computer/add-a-relay.md)
+>
+> Choose Shared, Dedicated, or self-hosted relays for your production endpoints.
+
+> [card] [See your direct data rate](https://docs.iroh.computer/iroh-services/quickstart.md)
+>
+> Watch direct data rate and other connectivity metrics over time so you can see whether your fixes are working.
+
+> [card] [Troubleshooting](https://docs.iroh.computer/troubleshooting.md)
+>
+> Broader debug toolkit covering logging and the iroh-doctor CLI for local diagnostics.
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

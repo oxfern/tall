@@ -1,0 +1,111 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.iroh.computer/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Relays
+
+Relays are servers that temporarily route encrypted traffic until a direct, P2P connection is feasible. Once this direct path is set up, the relay server steps back, and the data flows directly between devices. This approach allows Iroh to maintain a secure, low-latency connection, even in challenging network situations.
+There are situations where a direct connection can’t be established, and in those cases traffic falls back to running through the relay. Relay servers do not have access to the data being transmitted, as it’s encrypted end-to-end.
+
+Relays serve two roles in iroh:
+
+1. **NAT Traversal.**  When two endpoints first connect, they exchange network information through the relay to attempt a direct P2P connection.
+2. **Encrypted traffic fallback.** If a direct connection can't be established (due to strict NATs, firewalls, or other network conditions), traffic flows through the relay instead.
+
+Once a direct path is established, the relay steps back and data flows peer-to-peer. Relay servers **cannot read** any of the traffic they handle; it's encrypted end-to-end.
+
+In practice, roughly 9 out of 10 networking conditions allow a direct connection. iroh's NAT traversal implementation is deterministic: if it works between two devices once, it will continue to work as long as their networking setup stays stable.
+
+## Choose a production relay
+
+> [card] [Use Shared Relays](https://docs.iroh.computer/iroh-services/relays/shared.md)
+>
+> Use the standard Pro production option without managing single-tenant infrastructure.
+
+> [card] [Deploy a dedicated relay](https://docs.iroh.computer/iroh-services/relays/managed.md)
+>
+> Use single-tenant capacity, custom regions, or [version locking](https://docs.iroh.computer/iroh-services/relays/managed.md#version-locking).
+
+## Why relays are better
+
+Unlike traditional servers, relay servers are **stateless**. They don't store your application data; they just facilitate connections.
+
+* **No database synchronization.** Nothing to replicate across relay instances.
+* **No state migration.** When a relay goes down, clients reconnect to another with no data loss.
+* **Simple scaling.** Spin relay instances up or down like any lightweight service.
+* **Automatic failover.** Iroh can attempt to connect to multiple relays automatically; as long as one is reachable, your peers find each other.
+
+This inverts the traditional model: relays are disposable connection facilitators, while your clients own all the application state and logic.
+
+## Public relays
+
+Iroh hardcodes a set of public relays provided by
+[n0.computer](https://n0.computer), free to use.
+
+Public relays:
+
+* Rate-limit traffic to prevent abuse
+* Carry no uptime or performance guarantees
+* Are shared across all iroh developers worldwide
+
+**Public relays are suitable for development and testing.** For production, use
+Shared Relays on the Pro plan unless you need single-tenant capacity, custom
+regions, [version locking](https://docs.iroh.computer/iroh-services/relays/managed.md#version-locking), or an SLA. Use Dedicated for the first three
+requirements; use an Enterprise plan when you need an SLA.
+
+## Shared relays
+
+Shared Relays are authenticated, multi-tenant relays included with the Pro plan.
+They provide predictable production capacity without requiring you to deploy or
+operate single-tenant infrastructure. See [Shared
+Relays](https://docs.iroh.computer/iroh-services/relays/shared.md) for limits and pricing.
+
+## Dedicated relays
+
+Dedicated relays are relay servers provisioned exclusively for your project, either managed through Iroh Services or self-hosted.
+
+They offer:
+
+* **Authenticated by default**: only your project's endpoints can connect, authenticated automatically with your API key. You can turn authentication off from the dashboard if you want any endpoint that has the URL to be able to use it.
+* **Isolation**: no noisy neighbors; your traffic is yours alone
+* **[Version locking](https://docs.iroh.computer/iroh-services/relays/managed.md#version-locking)**: stay on a specific iroh version or run blue/green deployments
+* **Multi-region**: deploy relays across regions for resilience
+
+SLAs and multi-cloud deployments are available on Enterprise plans.
+
+## Authentication
+
+Shared and Dedicated relays require authentication by default, so they only
+carry traffic for endpoints authorized by your project. The project API key is
+a long-lived signing secret. The SDK uses it locally to create an expiring,
+endpoint-bound relay capability token, and the endpoint presents that token to
+the relay. The API key itself is not sent to the relay.
+
+The project API key remains a project-wide root credential; separately issued
+per-endpoint credentials are not implemented. See [API
+Keys](https://docs.iroh.computer/iroh-services/access.md#how-relay-authentication-works) for the authoritative
+implementation and security guidance.
+
+A few things worth knowing:
+
+* **Revocation is live when authentication is enabled.** Delete an API key and its access is withdrawn from authenticated relays, including connections that are already open. Clients using that key cannot reconnect without a token from an allowed key.
+* **Authentication is a toggle, not a different relay.** Turning authentication off from the dashboard tells the relay to admit any endpoint without a token. Turn it back on and the token check resumes for new connections. See [Turn authentication off](https://docs.iroh.computer/iroh-services/relays/managed.md#turn-authentication-off).
+* **Turning authentication off doesn't make a relay discoverable.** Your relay is never listed or advertised anywhere. With authentication off, any endpoint that already knows the relay's URL can use it, but it still has to know the URL.
+* **Authentication is about access, not privacy.** All relay traffic is end-to-end encrypted regardless. Authentication controls *who may use* your relay; it doesn't change what the relay can see (it still can't read your traffic).
+
+Self-hosted relays you run outside of Iroh Services manage their own access, so this is handled for you only on managed relays. See [API Keys](https://docs.iroh.computer/iroh-services/access.md) for where your key comes from.
+
+## Deploy your own relay
+
+> [card] [Deploy a dedicated relay](https://services.iroh.computer?utm_source=docs\&utm_content=concepts-relays)
+>
+> Sign up for Iroh Services and spin up a managed relay for your project in minutes.
+
+Or self-host using the open-source relay binary:
+
+* [Relay source code](https://github.com/n0-computer/iroh/tree/main/iroh-relay)
+* [Relay binary releases](https://github.com/n0-computer/iroh/releases)
+* [Dedicated infrastructure guide](https://docs.iroh.computer/deployment/dedicated-infrastructure.md)
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

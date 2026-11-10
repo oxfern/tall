@@ -1,0 +1,51 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.iroh.computer/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Network Diagnostics
+
+> Read connectivity reports and troubleshoot net diagnostics setup
+
+When you click **Run Diagnostics** in the dashboard, the platform dials back into your
+endpoint using the capability token your app granted. Your `ClientHost` receives
+the request, runs the diagnostics locally (probing UDP connectivity, NAT
+behavior, relay latency, and port mapping), and returns the report to iroh services for
+display.
+
+To wire net diagnostics into your own application, follow [Diagnose a connectivity issue](https://docs.iroh.computer/iroh-services/net-diagnostics/quickstart.md). This page is the reference for reading the report it produces and fixing common setup problems.
+
+## Understanding Reports
+
+### NAT Types
+
+| NAT Type | What it means | Connection quality |
+| - | - | - |
+| **No NAT** | Local address matches public address | Direct connections work with correct firewall config |
+| **Endpoint-Independent** | One outbound UDP packet opens a port for any sender | NAT traversal works reliably |
+| **Endpoint-Dependent** | Only the specific destination can reply (symmetric NAT) | Connections will primarily use relays |
+| **Unknown** | NAT behavior could not be determined | Check UDP connectivity |
+
+### Connectivity Summary
+
+The report includes a color-coded connectivity summary:
+
+* **Green**: UDP works and NAT is favorable. Direct connections should work.
+* **Orange**: Endpoint-Dependent NAT. Direct connections may be difficult; traffic will often be relayed.
+* **Red**: No UDP connectivity. Traffic will be relayed.
+
+## Troubleshooting
+
+The capability grant (`NetDiagnosticsCap::GetAny`) authorizes the platform to
+request diagnostics from your endpoint. Without this grant, the **Run
+Diagnostics** button will be disabled in the dashboard even if the endpoint is
+online.
+
+If the button is enabled but the report never arrives, your endpoint is not
+accepting `CLIENT_HOST_ALPN`. The grant only tells the platform that it may dial
+back; the endpoint still has to answer that dial with a `ClientHost`. Confirm
+that you call `.accept(CLIENT_HOST_ALPN, ClientHost::new(&endpoint))` on the
+router you spawn for this endpoint, that the call happens before `.spawn()`, and
+that the router stays alive for as long as the endpoint does.
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

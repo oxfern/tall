@@ -1,0 +1,448 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.iroh.computer/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Connect two endpoints
+
+> Build a ping program that connects two endpoints over iroh
+
+In this tutorial we'll build a small ping program using iroh and the [iroh-ping](https://github.com/n0-computer/iroh-ping) protocol. One endpoint runs as a **receiver**, prints a ticket, and waits for incoming pings. The other runs as a **sender**, dials the receiver using the ticket, and reports the round-trip time.
+
+Ping is a simple request/response protocol with sender and receiver roles. But unlike IP ping ([ICMP]), iroh ping works even if both devices are behind a NAT.
+
+The full example can be [viewed on GitHub](https://github.com/n0-computer/iroh-ping/blob/main/examples/quickstart.rs).
+
+## Set up
+
+Pick your language and create a project with the iroh bindings installed. Each tab assumes you already have the language toolchain on your machine. For full setup details per language (Xcode project for Swift, NDK targets for Kotlin/Android, etc.) see the [language guides](https://docs.iroh.computer/languages/index.md).
+
+```bash Rust theme={null}
+cargo init ping-pong
+cd ping-pong
+cargo add iroh iroh-ping iroh-tickets anyhow tracing-subscriber
+cargo add tokio --features full
+# work in src/main.rs
+```
+
+```bash Python theme={null}
+mkdir ping-pong && cd ping-pong
+python -m venv .venv && source .venv/bin/activate
+pip install iroh
+# work in main.py
+```
+
+```bash Swift theme={null}
+swift package init --type executable --name ping-pong
+cd ping-pong
+# add to Package.swift dependencies:
+#   .package(url: "https://github.com/n0-computer/iroh-ffi", from: "1.0.0")
+# and to your target dependencies:
+#   .product(name: "IrohLib", package: "iroh-ffi")
+# work in Sources/ping-pong/main.swift
+```
+
+```bash Kotlin theme={null}
+# scaffold a Gradle project, then add the iroh dependency:
+#   dependencies { implementation("computer.iroh:iroh:1.0.0") }
+# (Maven Central — requires mavenCentral() in your repositories block)
+# work in a Main.kt with `fun main(...)`
+```
+
+```bash JavaScript theme={null}
+mkdir ping-pong && cd ping-pong
+npm init -y
+npm pkg set type=module
+npm install @number0/iroh
+# work in main.mjs
+```
+
+## Protocols and ALPN
+
+A **protocol** defines how two endpoints exchange messages. Just like HTTP defines how web browsers talk to servers, iroh protocols define how peers communicate over iroh connections.
+
+Each protocol is identified by an **ALPN** (Application-Layer Protocol Negotiation) string. When a connection arrives, the router uses the ALPN string to decide which handler processes the data.
+
+`iroh-ping` is a diagnostic protocol that lets two endpoints exchange lightweight ping/pong messages to prove connectivity and measure round-trip latency. You can build your own protocol handlers or use existing ones like iroh-ping.
+
+> [!NOTE]
+>
+> To write your own protocol, see the [protocol documentation page](https://docs.iroh.computer/protocols/writing-a-protocol.md).
+
+## What is a ticket?
+
+When an iroh endpoint comes online, it has an address containing its Endpoint ID, relay URL, and direct addresses. The address is a structured representation that other iroh endpoints can use to dial it.
+
+An `EndpointTicket` wraps this address into a serializable format: a short string you can copy and paste. Share this string with senders so they can dial the receiver without manually exchanging networking details.
+
+This out-of-band information must reach the sender somehow so that endpoints can discover each other while still bootstrapping a secure, end-to-end encrypted connection. In this example we just use a string for users to copy and paste, but in your app you could publish it to a server, send it as a QR code, or pass it as a URL query parameter. It's up to you.
+
+For more on how this works, see [Tickets](https://docs.iroh.computer/concepts/tickets.md) and [Address Lookup](https://docs.iroh.computer/concepts/address-lookup.md).
+
+## The receiver
+
+The receiver creates an iroh endpoint, brings it online, prints a ticket containing its address, and accepts incoming ping requests until you press Ctrl+C. The Rust version uses the `iroh-ping` protocol crate; the other languages open the bidirectional stream by hand and echo the payload back, since iroh-ping isn't bound yet.
+
+```rust Rust theme={null}
+use anyhow::Result;
+use iroh::{Endpoint, endpoint::presets, protocol::Router};
+use iroh_ping::Ping;
+use iroh_tickets::{Ticket, endpoint::EndpointTicket};
+
+async fn run_receiver() -> Result<()> {
+    let endpoint = Endpoint::bind(presets::N0).await?;
+    endpoint.online().await;
+    let ping = Ping::new();
+    let ticket = EndpointTicket::new(endpoint.addr());
+    println!("{ticket}");
+
+    let _router = Router::builder(endpoint)
+        .accept(iroh_ping::ALPN, ping)
+        .spawn();
+
+    tokio::signal::ctrl_c().await?;
+    Ok(())
+}
+```
+
+```python Python theme={null}
+async def receiver():
+    iroh.iroh_ffi.uniffi_set_event_loop(asyncio.get_running_loop())
+    ep = await iroh.Endpoint.bind(iroh.EndpointOptions(alpns=[list(ALPN)]))
+    print("ticket:", str(iroh.EndpointTicket(ep.addr())))
+
+    incoming = await ep.accept_next()
+    conn = await (await incoming.accept()).connect()
+    bi = await conn.accept_bi()
+    msg = await bi.recv().read_to_end(1024)
+    await bi.send().write_all(msg)
+    await bi.send().finish()
+    await ep.close()
+```
+
+```swift Swift theme={null}
+func receiver() async throws {
+    let ep = try await Endpoint.bind(
+        options: EndpointOptions(preset: presetN0(), alpns: [ALPN])
+    )
+    let ticket = try EndpointTicket(addr: ep.addr())
+    print("ticket: \(ticket)")
+
+    let incoming = try await ep.acceptNext()!
+    let conn = try await incoming.accept().connect()
+    let bi = try await conn.acceptBi()
+    let msg = try await bi.recv().readToEnd(sizeLimit: 1024)
+    try await bi.send().writeAll(buf: msg)
+    try await bi.send().finish()
+    try await ep.close()
+}
+```
+
+```kotlin Kotlin theme={null}
+suspend fun receiver() {
+    val ep = Endpoint.bind(
+        EndpointOptions(preset = presetN0(), alpns = listOf(ALPN)),
+    )
+    println("ticket: ${EndpointTicket(ep.addr())}")
+
+    val incoming = ep.acceptNext()!!
+    val conn = incoming.accept().connect()
+    val bi = conn.acceptBi()
+    val msg = bi.recv().readToEnd(1024u)
+    bi.send().writeAll(msg)
+    bi.send().finish()
+    ep.shutdown()
+}
+```
+
+```javascript JavaScript theme={null}
+async function receiver() {
+  const ep = await Endpoint.bind({ alpns: [ALPN] })
+  console.log('ticket:', EndpointTicket.fromAddr(ep.addr()).toString())
+
+  const incoming = await ep.acceptNext()
+  const conn = await (await incoming.accept()).connect()
+  const bi = await conn.acceptBi()
+  const msg = await bi.recv.readToEnd(1024)
+  await bi.send.writeAll(msg)
+  await bi.send.finish()
+  await ep.close()
+}
+```
+
+> [!NOTE]
+>
+> **Python: what is `uniffi_set_event_loop`?** iroh's Rust runtime runs on its own threads, and when an operation completes (a connection arrives, a read finishes) one of those threads has to wake your Python code up. A Rust thread has no running asyncio loop, so the bindings cannot find yours on their own: this call hands them your loop explicitly. Make it the first line of any coroutine you pass to `asyncio.run()`, before touching any other iroh API. Without it, calls from Rust back into Python fail with `RuntimeError: no running event loop`, which typically shows up as an `await` that never completes. See the [Python guide](https://docs.iroh.computer/languages/python.md#register-your-event-loop) for details.
+
+## The sender
+
+The sender creates its own endpoint, parses the receiver's ticket, and dials. Rust delegates to `iroh-ping`; the other languages open a bidirectional stream, write `hello`, await the echo, and time the round trip.
+
+```rust Rust theme={null}
+async fn run_sender(ticket: EndpointTicket) -> Result<()> {
+    let send_ep = Endpoint::bind(presets::N0).await?;
+    let send_pinger = Ping::new();
+    let rtt = send_pinger
+        .ping(&send_ep, ticket.endpoint_addr().clone())
+        .await?;
+    println!("ping took: {:?} to complete", rtt);
+    Ok(())
+}
+```
+
+```python Python theme={null}
+async def sender(ticket_str):
+    iroh.iroh_ffi.uniffi_set_event_loop(asyncio.get_running_loop())
+    ep = await iroh.Endpoint.bind(iroh.EndpointOptions())
+    addr = iroh.EndpointTicket.parse(ticket_str).endpoint_addr()
+    conn = await ep.connect(addr, list(ALPN))
+
+    bi = await conn.open_bi()
+    start = time.monotonic()
+    await bi.send().write_all(list(b"hello"))
+    await bi.send().finish()
+    await bi.recv().read_to_end(1024)
+    print(f"ping took: {(time.monotonic() - start) * 1000:.2f} ms")
+    await ep.close()
+```
+
+```swift Swift theme={null}
+func sender(_ ticketStr: String) async throws {
+    let ep = try await Endpoint.bind(options: EndpointOptions(preset: presetN0()))
+    let addr = try EndpointTicket.parse(str: ticketStr).endpointAddr()
+    let conn = try await ep.connect(addr: addr, alpn: ALPN)
+
+    let bi = try await conn.openBi()
+    let start = Date()
+    try await bi.send().writeAll(buf: Data("hello".utf8))
+    try await bi.send().finish()
+    _ = try await bi.recv().readToEnd(sizeLimit: 1024)
+    let ms = Date().timeIntervalSince(start) * 1000
+    print(String(format: "ping took: %.2f ms", ms))
+    try await ep.close()
+}
+```
+
+```kotlin Kotlin theme={null}
+suspend fun sender(ticketStr: String) {
+    val ep = Endpoint.bind(EndpointOptions(preset = presetN0()))
+    val addr = EndpointTicket.parse(ticketStr).endpointAddr()
+    val conn = ep.connect(addr, ALPN)
+
+    val bi = conn.openBi()
+    val ms = measureTimeMillis {
+        bi.send().writeAll("hello".toByteArray())
+        bi.send().finish()
+        bi.recv().readToEnd(1024u)
+    }
+    println("ping took: $ms ms")
+    ep.shutdown()
+}
+```
+
+```javascript JavaScript theme={null}
+async function sender(ticketStr) {
+  const ep = await Endpoint.bind()
+  const addr = EndpointTicket.fromString(ticketStr).endpointAddr()
+  const conn = await ep.connect(addr, ALPN)
+
+  const bi = await conn.openBi()
+  const start = performance.now()
+  await bi.send.writeAll(Array.from(Buffer.from('hello')))
+  await bi.send.finish()
+  await bi.recv.readToEnd(1024)
+  console.log(`ping took: ${(performance.now() - start).toFixed(2)} ms`)
+  await ep.close()
+}
+```
+
+## Wiring main
+
+Parse the command-line argument to decide whether to run as receiver or sender. Each language tab is a complete file — drop the receiver and sender from the previous sections above the entry point.
+
+```rust Rust theme={null}
+use std::env;
+use anyhow::anyhow;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    tracing_subscriber::fmt::init();
+    let mut args = env::args().skip(1);
+    let role = args
+        .next()
+        .ok_or_else(|| anyhow!("expected 'receiver' or 'sender' as the first argument"))?;
+
+    match role.as_str() {
+        "receiver" => run_receiver().await,
+        "sender" => {
+            let ticket_str = args
+                .next()
+                .ok_or_else(|| anyhow!("expected ticket as the second argument"))?;
+            let ticket = EndpointTicket::deserialize(&ticket_str)
+                .map_err(|e| anyhow!("failed to parse ticket: {}", e))?;
+            run_sender(ticket).await
+        }
+        _ => Err(anyhow!("unknown role '{}'; use 'receiver' or 'sender'", role)),
+    }
+}
+```
+
+```python Python theme={null}
+import asyncio
+import sys
+import time
+
+import iroh
+
+ALPN = b"iroh-tutorial/ping/0"
+
+# ... receiver() and sender() from the sections above ...
+
+if __name__ == "__main__":
+    if sys.argv[1] == "receiver":
+        asyncio.run(receiver())
+    else:
+        asyncio.run(sender(sys.argv[2]))
+```
+
+```swift Swift theme={null}
+import Foundation
+import IrohLib
+
+let ALPN = Data("iroh-tutorial/ping/0".utf8)
+
+// ... receiver() and sender() from the sections above ...
+
+let args = CommandLine.arguments
+switch args[1] {
+case "receiver": try await receiver()
+case "sender":   try await sender(args[2])
+default:         fatalError("usage: receiver | sender <ticket>")
+}
+```
+
+```kotlin Kotlin theme={null}
+import computer.iroh.*
+import kotlinx.coroutines.runBlocking
+import kotlin.system.measureTimeMillis
+
+private val ALPN = "iroh-tutorial/ping/0".toByteArray()
+
+// ... receiver() and sender() from the sections above ...
+
+fun main(args: Array<String>) = runBlocking {
+    when (args[0]) {
+        "receiver" -> receiver()
+        "sender"   -> sender(args[1])
+        else       -> error("usage: receiver | sender <ticket>")
+    }
+}
+```
+
+```javascript JavaScript theme={null}
+import { Endpoint, EndpointTicket } from '@number0/iroh'
+
+const ALPN = Array.from(Buffer.from('iroh-tutorial/ping/0'))
+
+// ... receiver() and sender() from the sections above ...
+
+const [cmd, arg] = process.argv.slice(2)
+if (cmd === 'receiver') await receiver()
+else if (cmd === 'sender') await sender(arg)
+else console.error('usage: receiver | sender <ticket>')
+```
+
+## Run it
+
+In one terminal, start the receiver. It will print a ticket. Copy that ticket and run the sender in another terminal — you should see the round-trip time printed.
+
+```bash Rust theme={null}
+# terminal 1
+cargo run -- receiver
+
+# terminal 2
+cargo run -- sender <TICKET>
+```
+
+```bash Python theme={null}
+# terminal 1
+python main.py receiver
+
+# terminal 2
+python main.py sender <TICKET>
+```
+
+```bash Swift theme={null}
+# terminal 1
+swift run ping-pong receiver
+
+# terminal 2
+swift run ping-pong sender <TICKET>
+```
+
+```bash Kotlin theme={null}
+# terminal 1
+./gradlew run --args="receiver"
+
+# terminal 2
+./gradlew run --args="sender <TICKET>"
+```
+
+```bash JavaScript theme={null}
+# terminal 1
+node main.mjs receiver
+
+# terminal 2
+node main.mjs sender <TICKET>
+```
+
+> [!NOTE]
+>
+> **Connection issues?** If the sender can't reach the receiver, see the [troubleshooting guide](https://docs.iroh.computer/troubleshooting.md) to enable detailed logging or use `iroh-doctor` to diagnose network problems.
+
+## Optional: send metrics to Iroh Services
+
+If you want to see how your endpoints are performing (direct data rate, NAT traversal success, traffic volume) you can wire in [Iroh Services](https://docs.iroh.computer/iroh-services/quickstart.md) as an optional client.
+
+Add the dependency:
+
+```bash theme={null}
+cargo add iroh-services
+```
+
+Then in `run_receiver` (and/or `run_sender`), conditionally connect to Iroh Services if the `IROH_SERVICES_API_SECRET` environment variable is set. If the variable isn't set the connection is skipped silently and your endpoint runs as before. If it is set, your endpoint shows up in the Iroh Services dashboard with live metrics.
+
+```rust theme={null}
+use iroh_services::Client;
+
+// ... after `endpoint.online().await;`
+
+let _services_client = match Client::builder(&endpoint).api_secret_from_env() {
+    Ok(builder) => {
+        let client = builder.name("ping-receiver")?.build().await?;
+        println!("Connected to Iroh Services");
+        Some(client)
+    }
+    Err(_) => None,
+};
+```
+
+Get an API key from the [API Keys page](https://docs.iroh.computer/iroh-services/access.md), then run with the env var set:
+
+```bash theme={null}
+IROH_SERVICES_API_SECRET=YOUR_API_KEY cargo run -- receiver
+```
+
+## More tutorials
+
+You've now built a ping tool. The full example is [on GitHub](https://github.com/n0-computer/iroh-ping).
+
+If you're hungry for more, check out:
+
+* [Blob storage with iroh-blobs](https://docs.iroh.computer/protocols/blobs.md)
+* [Build your own P2P chat app](https://docs.iroh.computer/examples/chat.md)
+* [Rust API documentation](https://docs.rs/iroh)
+
+[ICMP]: https://en.wikipedia.org/wiki/Internet_Control_Message_Protocol
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

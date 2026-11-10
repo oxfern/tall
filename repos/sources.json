@@ -1,0 +1,38 @@
+{
+  "$comment": "Vendored upstream source for reading. Reference only: never built, imported or edited here (the cargo workspace does not include repos/).",
+  "sources": [
+    {
+      "name": "xmonad",
+      "prefix": "repos/xmonad",
+      "url": "https://github.com/xmonad/xmonad.git",
+      "ref": "v0.18.1",
+      "license": "BSD-3-Clause",
+      "kind": "squashed git subtree",
+      "purpose": "The tiling algorithm. core/src/layout.rs is a port of Tall, Mirror, Full and the Stack operations.",
+      "read_first": ["repos/xmonad/src/XMonad/Layout.hs", "repos/xmonad/src/XMonad/StackSet.hs", "repos/xmonad/src/XMonad/Config.hs"],
+      "update": "git subtree pull --prefix=repos/xmonad https://github.com/xmonad/xmonad.git <tag> --squash"
+    },
+    {
+      "name": "vinyl",
+      "prefix": "repos/vinyl",
+      "url": "https://github.com/rauchg/vinyl.git",
+      "ref": "main",
+      "upstream_commit": "bcc9264509d78ccbf4a449618f19c1cc3104b49c",
+      "license": "MIT (code)",
+      "kind": "file snapshot without assets/, records/ and og.png (360 MB of recordings under their own licences)",
+      "purpose": "Reference for a page that is a GPU-drawn surface with no framework, bundler or dependencies.",
+      "read_first": ["repos/vinyl/README.md", "repos/vinyl/src/render.js", "repos/vinyl/src/shaders.js", "repos/vinyl/src/main.js"],
+      "update": "sparse clone at the new commit, copy everything except assets/, records/ and og.png"
+    },
+    {
+      "name": "iroh-docs",
+      "prefix": "repos/iroh-docs",
+      "url": "https://docs.iroh.computer/llms.txt",
+      "ref": "snapshot 2026-11-10",
+      "kind": "every .md page listed in llms.txt at the same relative paths, plus examples/browser-echo and examples/browser-chat from n0-computer/iroh-examples at 6a8cfcdccc6a633c5608cb25e776cb52fd509dd3",
+      "purpose": "iroh in the browser (WebAssembly, relay only), relays, endpoints, QUIC streams and datagrams.",
+      "read_first": ["repos/iroh-docs/llms.txt", "repos/iroh-docs/languages/wasm-browser.md", "repos/iroh-docs/concepts", "repos/iroh-docs/relays", "repos/iroh-docs/examples/browser-echo"],
+      "update": "scripts/vendor-iroh-docs.sh (pages); copy the two examples from iroh-examples"
+    }
+  ]
+}

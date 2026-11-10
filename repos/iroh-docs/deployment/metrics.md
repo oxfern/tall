@@ -1,0 +1,39 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.iroh.computer/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Custom Metrics
+
+iroh provides support for collecting metrics about your application's
+performance and behavior using the `iroh-metrics` crate. This crate offers a
+simple and flexible way to define, collect, and report various metrics.
+
+## Example
+
+```rust theme={null}
+use iroh_metrics::{Counter, MetricsGroup};
+
+/// Define your metrics:
+#[derive(Debug, Default, MetricsGroup)]
+#[metrics(name = "ping")]
+pub struct Metrics {
+    /// count of valid ping messages sent
+    pub pings_sent: Counter,
+    /// count of valid ping messages received
+    pub pings_recv: Counter,
+}
+
+// elsewhere...
+let metrics = Metrics::default();
+
+// increment count of pings we've received
+metrics.pings_recv.inc();
+```
+
+## Exporting metrics
+
+* *Prometheus*: The `iroh-metrics` crate supports exporting metrics to Prometheus.
+* *iroh services*: [Contact us](mailto:support@iroh.computer) if you are interested in custom metrics hosting without prometheus.
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

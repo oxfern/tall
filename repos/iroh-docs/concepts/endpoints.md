@@ -1,0 +1,130 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.iroh.computer/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Endpoints
+
+An *endpoint* is the main API interface to create connections to, and accept
+connections from other iroh endpoints. The connections are
+end-to-end encrypted. Endpoints have a `EndpointID` (the public half of an
+Ed25519 keypair) and the private key used to sign and decrypt messages.
+
+Generally, an application will have a single endpoint instance. This ensures all
+the connections made share the same connections to other iroh
+endpoints, while still remaining independent connections. This will result in
+more optimal network behaviour.
+
+## Connections
+
+Either endpoint might be operating as the "server", so we use `connect` and
+`accept` to distinguish between the two.  The `connect` method is used to create
+a new connection to a remote endpoint, while `accept` is used to accept incoming
+connections from a remote endpoint.
+
+Connections are full-fledged QUIC connections, giving you access to most
+features of QUIC / HTTP3, including bidirectional and unidirectional streams.
+
+A [Relay](https://docs.iroh.computer/concepts/relays.md) server can be used to make the connections reliable.
+
+> [!NOTE]
+>
+> Due to the light-weight properties of QUIC streams a stream can only be accepted once the initiating peer has sent some data on it.
+
+## Endpoint Identifiers
+
+Each endpoint in iroh has a unique identifier (`EndpointID`) created as a
+cryptographic key. This can be used to globally identify an endpoint. Because
+`EndpointIDs` are cryptographic keys, they are also the mechanism by which all
+traffic is always encrypted for a specific endpoint only.
+
+By default, creating an endpoint generates a **new random identity** each time —
+a fresh keypair, and therefore a new `EndpointID`. If you want the same
+`EndpointID` to persist across restarts (so peers can reconnect and your tickets
+keep working), store the endpoint's `SecretKey` and load it on every launch. See
+[Persistent identity](https://docs.iroh.computer/connecting/creating-endpoint.md#persistent-identity) for a
+working example.
+
+See the [EndpointID](https://docs.rs/iroh/latest/iroh/type.EndpointId.html) documentation for more information.
+
+# Endpoint Addresses
+
+Endpoint Addresses or [`EndpointAddrs`](https://docs.rs/iroh/latest/iroh/struct.EndpointAddr.html) are a common struct you'll interact when working with iroh to tell iroh what & where to dial. In rust they look like this:
+
+```rust theme={null}
+pub struct EndpointAddr {
+    pub id: EndpointId,
+    pub addrs: BTreeSet<TransportAddr>,
+}
+```
+
+You'll interact with `EndpointAddr`s a fair amount when working with iroh. It's also quite normal to construct addresses manually from, say, endpoint identifiers stored in your application database.
+
+When we call [`connect`](https://docs.rs/iroh/latest/iroh/endpoint/struct.Endpoint.html#method.connect) on an [Endpoint](https://www.iroh.computer/docs/concepts/endpoint), we need to pass either a `EndpointAddr`, or something that can turn into a `EndpointAddr`. In iroh `Endpoint`s will have different fields populated depending on where they came from, and the address lookup services you've configured your endpoint with.
+
+### Interaction with address lookup
+
+From the above struct, the only *required* field is the `id`. And because of
+this, there's an implementation of `From` that can turn `EndpointIDs` directly
+into EndpointAddrs. *but this will only work if you have an address lookup service
+that can resolve EndpointIDs enabled*. Thankfully, we enable address lookup by
+default:
+
+```rust theme={null}
+use iroh::{Endpoint, endpoint::presets};
+
+// enables dialing by EndpointAddrs that only have EndpointIDs by default:
+let ep = Endpoint::builder(presets::N0)
+    .bind()
+    .await?;
+```
+
+This is why we actively encourage configuring an address lookup service, and DNS is the most common one we recommend. Because we're in p2p land dialing details & even home relays for an endpoint can change on very short notice, making this data go stale quickly. Endpoint Identifiers are a practical source of stability that counteracts this.
+
+### When to provide full details
+
+If you have full dialing details, it's well worth providing them as part of a
+`EndpointAddr` passed to `connect`. Iroh can use this to skip the network
+roundtrip required to either do initial address lookup, or update cached
+addresses. So if you have a source of up to date home relay & dialing info,
+provide it!
+
+### What to persist in your application
+
+When storing endpoint information in your application database, what you should
+persist depends on whether you're using address lookup:
+
+**If you're using address lookup (recommended):**
+Store just the `EndpointID`. When you need to connect, construct an
+`EndpointAddr` from the ID and let address lookup resolve the current dialing
+details. This is the most robust approach since relay URLs and direct addresses
+can change frequently in P2P networks.
+
+```rust theme={null}
+// Store in your database
+let endpoint_id: EndpointId = ...;
+
+// Later, when connecting
+let addr = EndpointAddr::from(endpoint_id);
+endpoint.connect(addr, ALPN).await?;
+```
+
+**If you're not using address lookup:**
+You'll need to store full `EndpointAddr` information (including the `addrs`
+field with relay and direct address information). Without address lookup, iroh has no
+way to resolve an `EndpointID` to dialing details.
+
+Keep in mind that stored dialing details can become stale quickly. Providing
+outdated information may slow down connection establishment as iroh tries
+addresses that no longer work before falling back to other methods.
+
+## Building on Endpoints
+
+Endpoints are a low-level primitive that iroh exposes on purpose. For some
+projects like [dumbpipe](https://dumbpipe.dev), endpoints are 95% of what you
+need to connect any two devices on the planet. For others, like
+[Blobs](https://docs.iroh.computer/protocols/blobs.md), endpoints are the foundation that higher-level
+protocols are built on. Most projects will not work with endpoints beyond
+constructing one and feeding it to one or more [protocols](https://docs.iroh.computer/concepts/protocols.md).
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

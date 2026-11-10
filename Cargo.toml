@@ -1,0 +1,21 @@
+[workspace]
+resolver = "3"
+members = ["core", "web", "server"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[workspace.dependencies]
+iroh = { version = "=1.4.1", default-features = false, features = ["tls-ring"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+strip = "symbols"
+panic = "abort"
+
+[profile.dev]
+debug = 0

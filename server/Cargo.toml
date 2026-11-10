@@ -1,0 +1,19 @@
+[package]
+name = "tall-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "tall"
+path = "src/main.rs"
+
+[dependencies]
+tall-core = { path = "../core" }
+iroh.workspace = true
+iroh-relay = { version = "=1.4.1", default-features = false, features = ["server", "tls-ring"] }
+http = "1"
+http-body-util = "0.1"
+hyper = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "sync", "time", "signal"] }

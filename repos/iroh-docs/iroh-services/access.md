@@ -1,0 +1,119 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.iroh.computer/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# API Keys
+
+> Authenticate your endpoint to Iroh Services to push metrics and connectivity reports
+
+API keys authenticate your endpoint to Iroh Services. Iroh itself is permissionless — connections between two endpoints never need authorization — but the resources in your project belong to you. Your API key is what lets an endpoint push data into your project and connect to your project's Shared or Dedicated relays.
+
+## What API keys authorize
+
+API keys are required for:
+
+* Uploading metrics from endpoints to your project
+* Sending network diagnostics reports from endpoints to your project
+* Connecting to your project's [Shared](https://docs.iroh.computer/iroh-services/relays/shared.md) or [Dedicated relays](https://docs.iroh.computer/iroh-services/relays/managed.md), which require authentication by default
+
+API keys are **not** required for:
+
+* Connecting through the public relays
+* [NAT traversal](https://docs.iroh.computer/concepts/nat-traversal.md) connections to other iroh endpoints
+
+## Get an API key
+
+After signing in, [create a new project](https://services.iroh.computer/projects/projects/new?utm_source=docs\&utm_content=quickstart). This is your sandbox for all endpoints, the control center where you manage relays, metrics, and networks.
+
+[![Create Project](https://mintcdn.com/number0/fCc3-LAMKNsA0nlG/images/new-project.png?fit=max\&auto=format\&n=fCc3-LAMKNsA0nlG\&q=85\&s=6a66f93438edc7ab529540816e625bc8)](https://services.iroh.computer/projects/projects/new?utm_source=docs\&utm_content=quickstart)
+
+Then navigate to your project's **Settings → API Keys** tab and click **Create API Key**. The key is shown once on creation, so copy it somewhere safe.
+
+![Create API Key](https://mintcdn.com/number0/fCc3-LAMKNsA0nlG/images/create-api-key.png?fit=max\&auto=format\&n=fCc3-LAMKNsA0nlG\&q=85\&s=55b07cd0d0e5201a2b0effc4aeeb9f13)
+
+![See API Key](https://mintcdn.com/number0/fCc3-LAMKNsA0nlG/images/see-api-key.png?fit=max\&auto=format\&n=fCc3-LAMKNsA0nlG\&q=85\&s=e6b6643354342d56b21d0becf2cbdd90)
+
+The environment variable used by the Rust client is `IROH_SERVICES_API_SECRET` (named for legacy reasons; same thing as your API key).
+
+API keys do not expire automatically. A key remains valid until you delete it
+from your project.
+
+## Use it in your app
+
+Pass the key to `iroh_services::preset()`, bind your endpoint with the preset,
+then hand the same preset to the client:
+
+```rust theme={null}
+use iroh::Endpoint;
+
+let preset = iroh_services::preset()
+    .api_secret_from_str("YOUR_API_KEY")?
+    .build()?;
+
+let endpoint = Endpoint::bind(preset.clone()).await?;
+
+let client = preset.client_builder(&endpoint).build().await?;
+```
+
+The preset carries the key, so you don't pass it to the client a second time.
+
+The literal string above is for illustration. Load the key from an environment
+variable or a secret manager instead, using `api_secret_from_env()` to read
+`IROH_SERVICES_API_SECRET`.
+
+For a full walkthrough (creating an endpoint, naming it, and verifying it on the
+dashboard) see the [Iroh Services quickstart](https://docs.iroh.computer/iroh-services/quickstart.md).
+
+## How relay authentication works
+
+The API key is a long-lived, project-wide signing secret. The SDK does not send
+that secret to a relay. Instead, when you build an endpoint with
+`iroh_services::preset()`, it uses the API key locally to sign a capability
+token that:
+
+* Is bound to that endpoint's Endpoint ID
+* Grants only relay-use capability for the relay connection
+
+The endpoint presents this token when it connects. The relay verifies the token
+signature, Endpoint ID, capability, and expiry, and checks that the issuing API
+key is still allowed for the project. On relays with authentication enabled,
+deleting an API key removes that issuer and disconnects connections
+authenticated by it.
+
+## An API key is a project-wide secret
+
+The token is endpoint-bound, but the API key itself is not an endpoint-scoped
+credential. Any process holding the key can mint valid tokens for endpoint
+identities it controls, push metrics, send diagnostics reports, and connect to
+your project's managed relays. Treat the API key as the root credential for the
+whole project.
+
+API keys are a building block for your own authentication system, not a
+replacement for one. If your app runs on machines you don't control, you decide
+who gets access, and the key stays on your side.
+
+**Keep the key on endpoints you operate.** If you can control the machine's disk and process environment, and whether you can rotate
+the key on it without shipping a new release. If both are yes, the key is recoverable.
+
+On an enterprise deployment where machines are enrolled in an MDM, the key is delivered as a managed
+configuration or platform secret rather than compiled into the app, and you can
+rotate or revoke it across the fleet from the console. Those endpoints are
+infrastructure you operate in every sense that matters here, so metrics, net
+diagnostics, and authenticated dedicated relays all work as intended.
+
+What doesn't work so well is a consumer application on a device you don't administer. In those cases, you'll need to build your own authentication layer that allows you to control authentication with your own token, service, or otherwise. On it's own, iroh is not opinionated about authentication so you can use whatever system you want, forever.
+
+## What's next
+
+We're working on separately issued per-endpoint access through your own
+application server: your backend authenticates a user, then hands that user's
+endpoint a credential without your project API key ever touching the device.
+**This credential-issuance flow is not implemented yet.** The endpoint-bound
+capability token described above does not replace it because the process that
+mints that token still possesses the project-wide API key.
+
+If your use case needs this, [contact us](https://n0.computer/contact) — we want
+to hear about the shape of it.
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

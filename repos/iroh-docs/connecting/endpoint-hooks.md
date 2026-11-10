@@ -1,0 +1,170 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.iroh.computer/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Observing & Rejecting Connections
+
+> [!NOTE]
+>
+> Available in iroh v.96 and later.
+
+Endpoint Hooks allow you to intercept the connection-establishment process of an iroh `Endpoint`.
+
+They are a lightweight, flexible mechanism for observing connection events or
+rejecting connections based on conditions. The latter can be used to implement
+custom authentication schemes.
+
+Hooks run at two points:
+
+1. **Before an outgoing connection starts**. No packets have been sent yet.
+2. **After the QUIC/TLS handshake completes** for both incoming and outgoing connections. The remote endpoint ID, ALPN, and other metadata are available, but no application data has been sent or received yet.
+
+Hooks are registered with `Endpoint::builder(preset).hooks(...)`. If multiple hooks are installed, they run in the order they were added, and a rejection from any hook short-circuits the rest.
+
+Note that hooks cannot *use* connections, they can only *observe* or *reject* them. This is an important separation of concerns: If hooks were allowed to use the connections in any way, they could interfere with the actual protocols running within these connections. Hooks can, however, *reject* connections before they are passed on to protocol handlers. This makes it possible to implement custom authentication schemes with hooks that work without any support from the protocols running in these connections.
+
+> **Note:** Hooks live on the `Endpoint` instance. Never store an `Endpoint` inside your hook type (even indirectly), or it may cause reference-counting cycles and prevent clean shutdown.
+
+## Example: Observing connection events
+
+This example shows a minimal hook implementation that logs the context available at each stage and spawns a task to watch the connection's network paths. It does not alter behavior, only observes.
+
+```rust theme={null}
+use iroh::{
+    Endpoint, EndpointAddr,
+    endpoint::{AfterHandshakeOutcome, BeforeConnectOutcome, Connection, EndpointHooks, presets},
+};
+use n0_future::StreamExt;
+use tracing::info;
+
+/// Our hooks instance.
+///
+/// As we are only observing, we don't need to hold any state, thus we use a zero-sized struct.
+#[derive(Debug)]
+struct LogHooks;
+
+/// To use hooks, you need to implement the `EndpointHooks` trait.
+impl EndpointHooks for LogHooks {
+    // Runs before an outgoing connection begins.
+    async fn before_connect(
+        &self,
+        remote_addr: &EndpointAddr,
+        alpn: &[u8],
+    ) -> BeforeConnectOutcome {
+        info!(?remote_addr, ?alpn, "attempting to connect");
+        BeforeConnectOutcome::Accept
+    }
+
+    // Runs after the handshake for both incoming and outgoing connections.
+    //
+    // The hook receives the `Connection` by reference. We shouldn't clone the connection here,
+    // because this would prevent "close-on-drop" semantics that are often expected in other
+    // code paths. Instead, we use a weak handle and a stream of path events.
+    async fn after_handshake(&self, conn: &Connection) -> AfterHandshakeOutcome {
+        let remote = conn.remote_id().fmt_short();
+        info!(%remote, alpn=?conn.alpn(), side=?conn.side(), "connection established");
+        let mut path_events = conn.path_events();
+        let handle = conn.weak_handle();
+        tokio::spawn(async move {
+            while let Some(event) = path_events.next().await {
+                info!(%remote, ?event, "path event");
+                // Upgrade the weak handle briefly to inspect the connection or path state.
+                if let Some(conn) = handle.upgrade() {
+                    for path in conn.paths().iter() {
+                        // Inspect path state or log as desired.
+                        info!(%remote, dst=?path.remote_addr(), rx=path.stats().udp_rx.bytes, "path info");
+                    }
+                }
+            }
+            // The path event stream closes once the connection closes.
+            info!(%remote, "connection closed");
+        });
+
+        AfterHandshakeOutcome::Accept
+    }
+}
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    tracing_subscriber::fmt::init();
+    // Install the hooks on our endpoint.
+    let _endpoint = Endpoint::builder(presets::N0)
+        .hooks(LogHooks)
+        .bind()
+        .await?;
+    // Use `endpoint` normally...
+    Ok(())
+}
+```
+
+## Example: Rejecting connections
+
+Hooks can be used to enforce policy. If a hook returns a rejection result, the connection is immediately aborted.
+The example below rejects all incoming connections after the handshake. Outgoing connections will still dial.
+
+In real applications, you would inspect the `Connection` and reject connections by checking the connection's remote id or ALPN against authentication state in your app.
+
+```rust theme={null}
+use iroh::endpoint::{AfterHandshakeOutcome, Connection, Endpoint, EndpointHooks, Side, presets};
+
+#[derive(Debug)]
+struct RejectIncomingHook;
+
+impl EndpointHooks for RejectIncomingHook {
+    async fn after_handshake(&self, conn: &Connection) -> AfterHandshakeOutcome {
+        // Unconditionally reject all incoming connections.
+        // In actual apps, you could conditionally allow or accept by checking the connection's
+        // ALPN and remote id.
+        if conn.side() == Side::Server {
+            AfterHandshakeOutcome::Reject {
+                error_code: 403u32.into(),
+                reason: b"rejected".into(),
+            }
+        } else {
+            AfterHandshakeOutcome::Accept
+        }
+    }
+}
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    tracing_subscriber::fmt::init();
+    let _endpoint = Endpoint::builder(presets::N0)
+        .hooks(RejectIncomingHook)
+        .bind()
+        .await?;
+    Ok(())
+}
+```
+
+## More examples
+
+There are a few fully-featured examples for using hooks in the iroh repository.
+
+### [Authentication layer](https://github.com/n0-computer/iroh/blob/main/iroh/examples/auth-hook.rs)
+
+Demonstrates how to build an authentication flow on top of hooks. This pattern keeps authentication separate from your application protocols while still integrating cleanly with iroh’s connection lifecycle.
+
+* We implement a dedicated “auth” protocol (with its own ALPN) for performing a pre-authentication handshake.
+* Outgoing connections run the pre-auth step before starting other connections.
+* Incoming connections are checked against a set of authorized remote ids.
+* If an incoming connection comes from a peer that hasn't successfully performed pre-auth, the connection is rejected.
+
+### [Monitoring connection and path events](https://github.com/n0-computer/iroh/blob/main/iroh/examples/monitor-connections.rs)
+
+This example demonstrates how hooks can feed information to external tasks, giving you flexible observability.
+
+* A hook forwards a weak handle for each connection to a monitoring task.
+* The monitor can record events and stats.
+
+### [Aggregating information about remote endpoints](https://github.com/n0-computer/iroh/blob/main/iroh/examples/remote-info.rs)
+
+This example implements a `RemoteMap` that tracks and aggregates information about all remotes our endpoint knows about.
+This can be useful if your app needs to choose between remotes, or for building diagnostic tools.
+
+* A hook forwards a weak handle for each connection into a worker task.
+* The worker maintains a map of all remotes with counts of active connections and observed statistics (e.g. latency/RTT, whether relay/IP paths were used, etc).
+* The `RemoteMap` exposes a simple API to query all known remotes and their aggregate metrics.
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.
