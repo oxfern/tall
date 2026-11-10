@@ -23,7 +23,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use http::header::{ACCEPT_ENCODING, CACHE_CONTROL, CONNECTION, CONTENT_ENCODING, CONTENT_TYPE};
+use http::header::{ACCEPT_ENCODING, CACHE_CONTROL, CONNECTION, CONTENT_ENCODING, CONTENT_TYPE, HOST, LOCATION};
 use http::{HeaderMap, Method, Request, Response, StatusCode, response::Builder};
 use http_body_util::Full;
 use hyper::body::{Bytes, Incoming};
@@ -64,6 +64,11 @@ fn serve_file(
     content_type: &'static str,
 ) -> impl Fn(Request<Incoming>, Builder) -> HyperResult<Response<BytesBody>> {
     move |request, response| {
+        // One address for everyone: `www.` goes to the bare domain.
+        let host = request.headers().get(HOST).and_then(|value| value.to_str().ok()).unwrap_or_default();
+        if let Some(bare) = host.strip_prefix("www.") {
+            return respond(response.header(LOCATION, format!("https://{bare}/")), StatusCode::MOVED_PERMANENTLY, "");
+        }
         let gzip = request.headers().get(ACCEPT_ENCODING).and_then(|value| value.to_str().ok()).is_some_and(|value| value.contains("gzip"));
         let response = response.header(CONTENT_TYPE, content_type).header(CACHE_CONTROL, "no-cache");
         if gzip && let Ok(bytes) = std::fs::read(dir.join(format!("{file}.gz"))) {
