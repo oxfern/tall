@@ -88,7 +88,8 @@ fly deploy --ha=false
 ```
 
 Run exactly one machine: the relay and the roster live in the process's
-memory. `fly.toml` keeps it running so nobody waits for a start.
+memory. `fly.toml` stops it when nobody is connected; the next visitor
+waits a second or two for it to start.
 
 ## Vendored reference
 

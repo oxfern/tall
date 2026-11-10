@@ -51,11 +51,15 @@ const TEXTURE_COPY_DST: u32 = 0x02;
 const TEXTURE_BINDING: u32 = 0x04;
 const RENDER_ATTACHMENT: u32 = 0x10;
 
+/// The image slots.
+pub const BAR: usize = 0;
+pub const SPLASH: usize = 1;
+
 pub enum Source {
     /// A flat colour.
     Solid,
-    /// The bar texture.
-    Bar,
+    /// A texture uploaded with `set_image`: [`BAR`] or [`SPLASH`].
+    Image(usize),
     /// A `VideoFrame`.
     Video(JsValue),
 }
@@ -88,8 +92,8 @@ pub struct Gpu {
     uniforms: JsValue,
     uniform_group: JsValue,
     white_group: JsValue,
-    /// The bar texture, its bind group and its size.
-    bar: RefCell<Option<(JsValue, JsValue, u32, u32)>>,
+    /// Per image slot: the texture, its bind group and its size.
+    images: [RefCell<Option<(JsValue, JsValue, u32, u32)>>; 2],
     size: Cell<(u32, u32)>,
 }
 
@@ -174,7 +178,7 @@ impl Gpu {
             uniforms,
             uniform_group,
             white_group: JsValue::UNDEFINED,
-            bar: RefCell::new(None),
+            images: [RefCell::new(None), RefCell::new(None)],
             size: Cell::new((0, 0)),
             sampler,
             texture_layout,
@@ -209,9 +213,9 @@ impl Gpu {
         }
     }
 
-    /// Uploads the bar, drawn on an `OffscreenCanvas`.
-    pub fn set_bar(&self, image: &JsValue, width: u32, height: u32) {
-        let mut bar = self.bar.borrow_mut();
+    /// Uploads text drawn on an `OffscreenCanvas` into an image slot.
+    pub fn set_image(&self, slot: usize, image: &JsValue, width: u32, height: u32) {
+        let mut bar = self.images[slot].borrow_mut();
         if !bar.as_ref().is_some_and(|(_, _, w, h)| (*w, *h) == (width, height)) {
             if let Some((old, ..)) = bar.take() {
                 js::call(&old, "destroy", &[]);
@@ -227,7 +231,7 @@ impl Gpu {
             );
             *bar = Some((texture.clone(), self.texture_group(&texture), width, height));
         }
-        let (texture, ..) = bar.as_ref().expect("bar texture");
+        let (texture, ..) = bar.as_ref().expect("image texture");
         let source = obj! { "source": image.clone() };
         js::call(&self.queue, "copyExternalImageToTexture", &[source, obj! { "texture": texture.clone() }, arr![width, height]]);
     }
@@ -262,11 +266,10 @@ impl Gpu {
                 }],
             }],
         );
-        let bar = self.bar.borrow();
         for (i, quad) in quads.iter().enumerate() {
             let (pipeline, group) = match &quad.source {
                 Source::Solid => (&self.texture_pipeline, self.white_group.clone()),
-                Source::Bar => match bar.as_ref() {
+                Source::Image(slot) => match self.images[*slot].borrow().as_ref() {
                     Some((_, group, ..)) => (&self.texture_pipeline, group.clone()),
                     None => continue,
                 },

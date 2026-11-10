@@ -9,13 +9,14 @@ primary_region = "lhr"
   STATIC_DIR = "/srv"
 
 # Fly terminates TLS and forwards HTTP and the relay's WebSockets. The machine
-# is always running, so nobody waits for it to start.
+# stops when nobody is connected and starts on the next visit (a second or
+# two; set auto_stop_machines = "stop" and min_machines_running = 0 to keep it up).
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = "off"
+  auto_stop_machines = "stop"
   auto_start_machines = true
-  min_machines_running = 1
+  min_machines_running = 0
 
   # Every member holds one long-lived relay WebSocket.
   [http_service.concurrency]

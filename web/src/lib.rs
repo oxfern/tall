@@ -62,6 +62,11 @@ pub struct App {
     gpu: Gpu,
     /// The bar: its 2D canvas, what it shows, and where its buttons are.
     bar_canvas: RefCell<Option<JsValue>>,
+    /// The loading screen: its 2D canvas and the animation step it shows.
+    splash_canvas: RefCell<Option<JsValue>>,
+    splash_step: Cell<(u64, u32, u32)>,
+    /// Whether the endpoint has reached the relay.
+    bound: Cell<bool>,
     bar_text: RefCell<String>,
     bar_hits: RefCell<Vec<(f64, f64, Action)>>,
     /// Where each tile was drawn last, for taps.
@@ -102,6 +107,9 @@ async fn run() -> Result<(), String> {
         media: Media::new(),
         gpu,
         bar_canvas: RefCell::new(None),
+        splash_canvas: RefCell::new(None),
+        splash_step: Cell::new((0, 0, 0)),
+        bound: Cell::new(false),
         bar_text: RefCell::new(String::new()),
         bar_hits: RefCell::new(Vec::new()),
         tiles: RefCell::new(Vec::new()),
@@ -139,6 +147,7 @@ async fn run() -> Result<(), String> {
             return Err(error);
         }
     };
+    app.bound.set(true);
     spawn_local(net::accept_loop(app.clone(), endpoint.clone()));
     spawn_local(net::hub_loop(app, endpoint));
     Ok(())
@@ -266,7 +275,86 @@ impl App {
             x = end + gap;
         }
         *self.bar_hits.borrow_mut() = hits;
-        self.gpu.set_bar(canvas, width, height);
+        self.gpu.set_image(gpu::BAR, canvas, width, height);
+    }
+
+    /// The loading screen, in ASCII: the name, xmonad's `tile` filling a
+    /// character grid with one to seven windows, and what is being waited for.
+    fn splash(&self, width: u32, height: u32, scale: f64) {
+        const LOGO: [&str; 5] = [r" _        _ _ ", r"| |_ __ _| | |", r"| __/ _` | | |", r"| || (_| | | |", r" \__\__,_|_|_|"];
+        const COLUMNS: usize = 49;
+        const ROWS: usize = 17;
+        let step = (js_sys::Date::now() / 125.0) as u64;
+        if self.splash_step.replace((step, width, height)) == (step, width, height) {
+            return;
+        }
+
+        // The windows: borders on a character grid, neighbours sharing edges.
+        let mut grid = vec![vec![' '; COLUMNS]; ROWS];
+        let windows = 1 + (step / 5) % proto::MAX_MEMBERS as u64;
+        let screen = Rect::new(0, 0, COLUMNS as u32 - 1, ROWS as u32 - 1);
+        for (number, rect) in tall_core::layout::tile(50, screen, 1, windows as u32).into_iter().enumerate() {
+            let (left, top) = (rect.x as usize, rect.y as usize);
+            let (right, bottom) = (left + rect.w as usize, top + rect.h as usize);
+            for x in left..=right {
+                for y in top..=bottom {
+                    let (on_column, on_row) = (x == left || x == right, y == top || y == bottom);
+                    grid[y][x] = match (on_column, on_row) {
+                        (true, true) => '+',
+                        (true, false) if grid[y][x] != '+' => '|',
+                        (false, true) if grid[y][x] != '+' => '-',
+                        _ => grid[y][x],
+                    };
+                }
+            }
+            if rect.h >= 2 {
+                grid[top + rect.h as usize / 2][left + rect.w as usize / 2] = char::from(b'1' + number as u8);
+            }
+        }
+
+        let waiting = if !self.trouble.borrow().is_empty() {
+            self.trouble.borrow().clone()
+        } else if self.full.get() {
+            format!("the channel is full ({} here), waiting for a place", proto::MAX_MEMBERS)
+        } else if self.bound.get() {
+            "joining the channel".into()
+        } else {
+            "reaching the relay".into()
+        };
+        let spinner = ['|', '/', '-', '\\'][(step % 4) as usize];
+        let centered = |text: &str| format!("{}{text}", " ".repeat(COLUMNS.saturating_sub(text.chars().count()) / 2));
+        let mut lines: Vec<(String, &str)> = LOGO.iter().map(|line| (centered(line), "#ff0000")).collect();
+        lines.push((String::new(), ""));
+        lines.extend(grid.into_iter().map(|row| (row.into_iter().collect(), "#dddddd")));
+        lines.push((String::new(), ""));
+        lines.push((centered(&format!("{spinner} {waiting}")), "#ffcc00"));
+        lines.push((centered("iroh / webgpu / xmonad"), "#555555"));
+
+        let mut slot = self.splash_canvas.borrow_mut();
+        let canvas = slot.get_or_insert_with(|| js::try_new("OffscreenCanvas", &[width.into(), height.into()]).expect("OffscreenCanvas"));
+        if (js::num(canvas, "width"), js::num(canvas, "height")) != (f64::from(width), f64::from(height)) {
+            js::set(canvas, "width", width);
+            js::set(canvas, "height", height);
+        }
+        let context = js::call(canvas, "getContext", &["2d".into()]);
+        js::set(&context, "fillStyle", "#000000");
+        js::call(&context, "fillRect", &[0.into(), 0.into(), width.into(), height.into()]);
+        // As large as fits, up to a comfortable terminal size.
+        let size = (16.0 * scale).min(f64::from(width) / (COLUMNS as f64 * 0.62)).min(f64::from(height) / (lines.len() as f64 * 1.25)).floor();
+        js::set(&context, "font", format!("{size}px ui-monospace, Menlo, Consolas, monospace"));
+        js::set(&context, "textBaseline", "top");
+        let column = js::num(&js::call(&context, "measureText", &["M".into()]), "width");
+        let line_height = (size * 1.2).round();
+        let x = ((f64::from(width) - column * COLUMNS as f64) / 2.0).round();
+        let mut y = ((f64::from(height) - line_height * lines.len() as f64) / 2.0).round();
+        for (text, color) in &lines {
+            if !text.is_empty() {
+                js::set(&context, "fillStyle", *color);
+                js::call(&context, "fillText", &[text.as_str().into(), x.into(), y.into()]);
+            }
+            y += line_height;
+        }
+        self.gpu.set_image(gpu::SPLASH, canvas, width, height);
     }
 
     /// Draws one frame: the bar, then every tile where xmonad's layout puts it.
@@ -281,8 +369,20 @@ impl App {
         self.bar(width, bar_height, scale);
 
         let border = (BORDER * scale).round().max(1.0) as u32;
-        let mut quads =
-            vec![Quad { rect: [0.0, 0.0, width as f32, bar_height as f32], uv: [0.0, 0.0, 1.0, 1.0], color: [1.0; 4], source: Source::Bar }];
+        let mut quads = vec![Quad {
+            rect: [0.0, 0.0, width as f32, bar_height as f32],
+            uv: [0.0, 0.0, 1.0, 1.0],
+            color: [1.0; 4],
+            source: Source::Image(gpu::BAR),
+        }];
+        if !self.online_before.get() {
+            // Not in the channel yet: the loading screen takes the place of the tiles.
+            let splash_height = height - bar_height;
+            self.splash(width, splash_height, scale);
+            let rect = [0.0, bar_height as f32, width as f32, splash_height as f32];
+            quads.push(Quad { rect, uv: [0.0, 0.0, 1.0, 1.0], color: [1.0; 4], source: Source::Image(gpu::SPLASH) });
+            return self.gpu.draw(&quads);
+        }
         let stack = self.stack.borrow();
         let screen = Rect::new(0, bar_height as i32, width, height - bar_height);
         let rects = self.layout.get().run(screen, stack.len() as u32, stack.focus);

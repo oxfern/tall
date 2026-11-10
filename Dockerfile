@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1
 FROM rust:1.91.0-bookworm AS build
-RUN rustup target add wasm32-unknown-unknown \
+# ring's C code is compiled for wasm32 with clang.
+RUN apt-get update && apt-get install -y --no-install-recommends clang && rm -rf /var/lib/apt/lists/* \
+ && rustup target add wasm32-unknown-unknown \
  && cargo install wasm-bindgen-cli --version 0.2.129 --locked
 WORKDIR /app
 COPY . .
